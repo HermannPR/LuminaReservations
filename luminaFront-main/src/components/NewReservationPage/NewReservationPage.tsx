@@ -1,0 +1,606 @@
+// import { useState, useEffect } from 'react';
+// import { useNavigate, Link } from 'react-router-dom';
+// import type { FilterValues, SpaceAvailability, ReservationResponse } from '../../types/reservation';
+// import { getSession } from '../../services/tokenStore';
+// import { fetchAvailability, createReservation } from '../../services/reservationService';
+// import { mapReservationError } from '../../utils/reservationValidator';
+// import { FilterPanel } from './FilterPanel/FilterPanel';
+// import { FloorMap } from './FloorMap/FloorMap';
+// import { SelectedSpacePanel } from './SelectedSpacePanel/SelectedSpacePanel';
+// import { ConfirmationModal } from './ConfirmationModal/ConfirmationModal';
+// import { SuccessModal } from './SuccessModal/SuccessModal';
+// import { ErrorBanner } from '../ErrorBanner/ErrorBanner';
+// import styles from './NewReservationPage.module.css';
+
+// interface ReservationFlowState {
+//   filters: FilterValues;
+//   availableSpaces: SpaceAvailability[];
+//   selectedSpace: SpaceAvailability | null;
+//   isSearching: boolean;
+//   hasSearched: boolean;
+//   searchError: string | null;
+//   floorCategories: string[] | null;
+//   showConfirmationModal: boolean;
+//   showSuccessModal: boolean;
+//   confirmedReservation: ReservationResponse | null;
+//   confirmError: string | null;
+//   isConfirming: boolean;
+// }
+
+// const initialFilters: FilterValues = {
+//   reservation_date: '',
+//   start_time: '',
+//   end_time: '',
+//   floor_id: null,
+//   priority_category: null,
+// };
+
+// export function NewReservationPage(): JSX.Element {
+//   const navigate = useNavigate();
+
+//   const [state, setState] = useState<ReservationFlowState>({
+//     filters: initialFilters,
+//     availableSpaces: [],
+//     selectedSpace: null,
+//     isSearching: false,
+//     hasSearched: false,
+//     searchError: null,
+//     floorCategories: null,
+//     showConfirmationModal: false,
+//     showSuccessModal: false,
+//     confirmedReservation: null,
+//     confirmError: null,
+//     isConfirming: false,
+//   });
+
+//   useEffect(() => {
+//     const token = getSession()?.access_token;
+//     if (!token) {
+//       navigate('/login', { replace: true });
+//     }
+//   }, [navigate]);
+
+//   async function handleSearch() {
+//     const token = getSession()?.access_token;
+//     if (!token) {
+//       navigate('/login', { replace: true });
+//       return;
+//     }
+
+//     setState((prev) => ({ ...prev, isSearching: true, searchError: null }));
+
+//     const result = await fetchAvailability(state.filters, token);
+
+//     if (!result.success) {
+//       if (result.unauthorized) {
+//         navigate('/login', { replace: true });
+//         return;
+//       }
+//       setState((prev) => ({
+//         ...prev,
+//         isSearching: false,
+//         searchError: 'No se pudo obtener la disponibilidad. Intenta de nuevo.',
+//       }));
+//       return;
+//     }
+
+//     setState((prev) => ({
+//       ...prev,
+//       isSearching: false,
+//       hasSearched: true,
+//       availableSpaces: result.data,
+//       selectedSpace: null,
+//     }));
+//   }
+
+//   function handleSelectSpace(space: SpaceAvailability) {
+//     setState((prev) => ({ ...prev, selectedSpace: space, confirmError: null }));
+//   }
+
+//   function handleContinue() {
+//     setState((prev) => ({ ...prev, showConfirmationModal: true }));
+//   }
+
+//   async function handleConfirm() {
+//     const token = getSession()?.access_token;
+//     if (!token) {
+//       navigate('/login', { replace: true });
+//       return;
+//     }
+
+//     if (!state.selectedSpace) return;
+
+//     setState((prev) => ({ ...prev, isConfirming: true, confirmError: null }));
+
+//     const result = await createReservation(
+//       {
+//         space_id: state.selectedSpace.id,
+//         reservation_date: state.filters.reservation_date,
+//         start_time: state.filters.start_time,
+//         end_time: state.filters.end_time,
+//       },
+//       token
+//     );
+
+//     if (result.success) {
+//       setState((prev) => ({
+//         ...prev,
+//         isConfirming: false,
+//         confirmedReservation: result.data,
+//         showSuccessModal: true,
+//         showConfirmationModal: false,
+//       }));
+//       return;
+//     }
+
+//     if (result.unauthorized) {
+//       navigate('/login', { replace: true });
+//       return;
+//     }
+
+//     const errorCode = result.error;
+
+//     if (errorCode === 'SPACE_NOT_FOUND' || errorCode === 'SPACE_UNAVAILABLE') {
+//       const removedId = state.selectedSpace.id;
+//       setState((prev) => ({
+//         ...prev,
+//         isConfirming: false,
+//         confirmError: mapReservationError(errorCode),
+//         availableSpaces: prev.availableSpaces.filter((s) => s.id !== removedId),
+//         selectedSpace: null,
+//       }));
+//       return;
+//     }
+
+//     setState((prev) => ({
+//       ...prev,
+//       isConfirming: false,
+//       confirmError: mapReservationError(errorCode),
+//     }));
+//   }
+
+//   function handleCancelModal() {
+//     setState((prev) => ({ ...prev, showConfirmationModal: false, confirmError: null }));
+//   }
+
+//   function handleViewReservations() {
+//     navigate('/mis-reservas');
+//   }
+
+//   function handleCategoriesLoaded(cats: string[]) {
+//     setState((prev) => {
+//       // If current priority_category is not in the new floor's categories, reset it
+//       const catInvalid = prev.filters.priority_category !== null && !cats.includes(prev.filters.priority_category)
+//       return {
+//         ...prev,
+//         floorCategories: cats,
+//         filters: catInvalid ? { ...prev.filters, priority_category: null } : prev.filters,
+//       }
+//     })
+//   }
+
+//   return (
+//     <div className={styles.page}>
+//       <header className={styles.header}>
+//         <Link to="/dashboard" className={styles.backLink} aria-label="Volver al dashboard">
+//           ← Dashboard
+//         </Link>
+//         <h1 className={styles.title}>Nueva Reserva</h1>
+//       </header>
+
+//       <div className={styles.layout}>
+//         <aside className={styles.sidebar}>
+//           <FilterPanel
+//             values={state.filters}
+//             onChange={(filters) => setState((prev) => ({ ...prev, filters }))}
+//             onSearch={handleSearch}
+//             isLoading={state.isSearching}
+//             availableCategories={state.filters.floor_id !== null ? state.floorCategories : null}
+//           />
+//           <SelectedSpacePanel
+//             space={state.selectedSpace}
+//             filters={state.filters}
+//             onContinue={handleContinue}
+//           />
+//         </aside>
+
+//         <main className={styles.main}>
+//           {state.searchError && <ErrorBanner message={state.searchError} />}
+//           <FloorMap
+//             floorId={state.filters.floor_id}
+//             availableSpaces={state.availableSpaces}
+//             selectedSpaceId={state.selectedSpace?.id ?? null}
+//             onSelectSpace={handleSelectSpace}
+//             isLoading={state.isSearching}
+//             hasSearched={state.hasSearched}
+//             onCategoriesLoaded={handleCategoriesLoaded}
+//           />
+//         </main>
+//       </div>
+
+//       {state.showConfirmationModal && state.selectedSpace && (
+//         <ConfirmationModal
+//           isOpen={state.showConfirmationModal}
+//           space={state.selectedSpace}
+//           filters={state.filters}
+//           onConfirm={handleConfirm}
+//           onCancel={handleCancelModal}
+//           isLoading={state.isConfirming}
+//           error={state.confirmError}
+//         />
+//       )}
+
+//       {state.showSuccessModal && state.confirmedReservation && state.selectedSpace && (
+//         <SuccessModal
+//           isOpen={state.showSuccessModal}
+//           reservation={state.confirmedReservation}
+//           space={state.selectedSpace}
+//           filters={state.filters}
+//           onViewReservations={handleViewReservations}
+//         />
+//       )}
+//     </div>
+//   );
+// }
+
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import type { FilterValues, RecommendationResult, SpaceAvailability, ReservationResponse } from '../../types/reservation'
+import { getSession } from '../../services/tokenStore'
+import { fetchAvailability, createReservation, fetchRecommendations } from '../../services/reservationService'
+import { mapReservationError } from '../../utils/reservationValidator'
+import { FilterPanel } from './FilterPanel/FilterPanel'
+import { FloorMap } from './FloorMap/FloorMap'
+import { SelectedSpacePanel } from './SelectedSpacePanel/SelectedSpacePanel'
+import { ConfirmationModal } from './ConfirmationModal/ConfirmationModal'
+import { SuccessModal } from './SuccessModal/SuccessModal'
+import { ErrorBanner } from '../ErrorBanner/ErrorBanner'
+import AppShell from '../Layout/AppShell'
+import styles from './NewReservationPage.module.css'
+
+interface ReservationFlowState {
+  filters: FilterValues
+  availableSpaces: SpaceAvailability[]
+  selectedSpace: SpaceAvailability | null
+  isSearching: boolean
+  hasSearched: boolean
+  searchError: string | null
+  floorCategories: string[] | null
+  recommendations: RecommendationResult | null
+  showConfirmationModal: boolean
+  showSuccessModal: boolean
+  confirmedReservation: ReservationResponse | null
+  confirmError: string | null
+  isConfirming: boolean
+}
+
+function getDefaultFilters(): FilterValues {
+  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  const h = now.getHours()
+  const m = now.getMinutes()
+
+  let startH = h
+  let startM: number
+  if (m === 0) { startM = 0 }
+  else if (m <= 30) { startM = 30 }
+  else { startH = h + 1; startM = 0 }
+
+  if (startH < 7) { startH = 7; startM = 0 }
+  if (startH > 22 || (startH === 22 && startM > 0)) { startH = 22; startM = 0 }
+
+  const startTime = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`
+
+  let endH = startH + 1
+  const endM = startM
+  if (endH > 22) endH = 22
+  const endTime = startH >= 22 ? '' : `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+
+  return {
+    reservation_date: today,
+    start_time: startTime,
+    end_time: endTime,
+    floor_id: null,
+    priority_category: null,
+  }
+}
+
+export function NewReservationPage(): JSX.Element {
+  const navigate = useNavigate()
+
+  const [state, setState] = useState<ReservationFlowState>({
+    filters: getDefaultFilters(),
+    availableSpaces: [],
+    selectedSpace: null,
+    isSearching: false,
+    hasSearched: false,
+    searchError: null,
+    floorCategories: null,
+    recommendations: null,
+    showConfirmationModal: false,
+    showSuccessModal: false,
+    confirmedReservation: null,
+    confirmError: null,
+    isConfirming: false,
+  })
+
+  useEffect(() => {
+    const token = getSession()?.access_token
+    if (!token) {
+      navigate('/login', { replace: true })
+    }
+  }, [navigate])
+
+  // Stable ref so auto-search effect doesn't re-register when handleSearch identity changes
+  const handleSearchRef = useRef<() => Promise<void>>(null as unknown as () => Promise<void>)
+  const searchRequestIdRef = useRef(0)
+
+  // Auto-search when all required fields are valid
+  useEffect(() => {
+    const { reservation_date, start_time, end_time } = state.filters
+    const allFilled = reservation_date && start_time && end_time && end_time > start_time
+    if (!allFilled) return
+    handleSearchRef.current?.()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.filters.reservation_date, state.filters.start_time, state.filters.end_time, state.filters.floor_id, state.filters.priority_category])
+
+  useEffect(() => {
+    if (!state.searchError) return
+    const timeoutId = window.setTimeout(() => {
+      setState((prev) => ({ ...prev, searchError: null }))
+    }, 5000)
+    return () => window.clearTimeout(timeoutId)
+  }, [state.searchError])
+
+  useEffect(() => {
+    if (!state.confirmError) return
+    const timeoutId = window.setTimeout(() => {
+      setState((prev) => ({ ...prev, confirmError: null }))
+    }, 5000)
+    return () => window.clearTimeout(timeoutId)
+  }, [state.confirmError])
+
+  async function handleSearch() {
+    const token = getSession()?.access_token
+    if (!token) {
+      navigate('/login', { replace: true })
+      return
+    }
+
+    const requestId = searchRequestIdRef.current + 1
+    searchRequestIdRef.current = requestId
+
+    setState((prev) => ({ ...prev, isSearching: true, searchError: null }))
+
+    const [result, recommendationResult] = await Promise.all([
+      fetchAvailability(state.filters, token),
+      fetchRecommendations(state.filters, token),
+    ])
+
+    if (requestId !== searchRequestIdRef.current) {
+      return
+    }
+
+    if (!result.success) {
+      if (result.unauthorized) {
+        navigate('/login', { replace: true })
+        return
+      }
+      setState((prev) => ({
+        ...prev,
+        isSearching: false,
+        searchError: 'No se pudo obtener la disponibilidad. Intenta de nuevo.',
+      }))
+      return
+    }
+
+    setState((prev) => ({
+      ...prev,
+      isSearching: false,
+      hasSearched: true,
+      availableSpaces: result.data,
+      selectedSpace: null,
+      recommendations: recommendationResult.success ? recommendationResult.data : null,
+    }))
+  }
+
+  function handleSelectSpace(space: SpaceAvailability) {
+    setState((prev) => ({ ...prev, selectedSpace: space, confirmError: null }))
+  }
+
+  function handleContinue() {
+    setState((prev) => ({ ...prev, showConfirmationModal: true }))
+  }
+
+  async function handleConfirm(requiresParking: boolean) {
+    const token = getSession()?.access_token
+    if (!token) {
+      navigate('/login', { replace: true })
+      return
+    }
+
+    if (!state.selectedSpace) return
+
+    setState((prev) => ({ ...prev, isConfirming: true, confirmError: null }))
+
+    const payload = {
+      space_id: state.selectedSpace.id,
+      reservation_date: state.filters.reservation_date,
+      start_time: state.filters.start_time,
+      end_time: state.filters.end_time,
+      requiere_estacionamiento: requiresParking,
+    }
+
+    const result = await createReservation(payload, token)
+
+    if (result.success) {
+      setState((prev) => ({
+        ...prev,
+        isConfirming: false,
+        confirmedReservation: result.data,
+        showSuccessModal: true,
+        showConfirmationModal: false,
+      }))
+      return
+    }
+
+    if (result.unauthorized) {
+      navigate('/login', { replace: true })
+      return
+    }
+
+    const errorCode = result.error
+
+    if (errorCode === 'SPACE_NOT_FOUND' || errorCode === 'SPACE_UNAVAILABLE') {
+      const removedId = state.selectedSpace?.id
+      setState((prev) => ({
+        ...prev,
+        isConfirming: false,
+        confirmError: mapReservationError(errorCode),
+        availableSpaces: removedId ? prev.availableSpaces.filter((s) => s.id !== removedId) : prev.availableSpaces,
+        selectedSpace: null,
+      }))
+      return
+    }
+
+    setState((prev) => ({
+      ...prev,
+      isConfirming: false,
+      confirmError: mapReservationError(errorCode),
+    }))
+  }
+
+  function handleCancelModal() {
+    setState((prev) => ({ ...prev, showConfirmationModal: false, confirmError: null }))
+  }
+
+  function handleViewReservations() {
+    navigate('/mis-reservas')
+  }
+
+  function handleCategoriesLoaded(cats: string[]) {
+    setState((prev) => {
+      const catInvalid =
+        prev.filters.priority_category !== null &&
+        !cats.includes(prev.filters.priority_category)
+
+      return {
+        ...prev,
+        floorCategories: cats,
+        filters: catInvalid
+          ? { ...prev.filters, priority_category: null }
+          : prev.filters,
+      }
+    })
+  }
+
+  // Keep ref in sync after each render so auto-search always calls the latest closure
+  handleSearchRef.current = handleSearch
+
+  return (
+    <AppShell title="Nueva Reserva" noscroll>
+      <div className={styles.pageContent}>
+        <section className={styles.filterSection}>
+          <div className={styles.filterCard}>
+            <FilterPanel
+              values={state.filters}
+              onChange={(filters) => setState((prev) => ({ ...prev, filters }))}
+              onSearch={handleSearch}
+              isLoading={state.isSearching}
+              availableCategories={state.floorCategories}
+            />
+          </div>
+        </section>
+
+        <section className={styles.mapRow}>
+          <main className={styles.mapMain}>
+            {state.searchError && (
+              <div className={styles.errorWrap}>
+                <ErrorBanner
+                  message={state.searchError}
+                  onDismiss={() => setState((prev) => ({ ...prev, searchError: null }))}
+                />
+              </div>
+            )}
+
+            {state.hasSearched && state.availableSpaces.length === 0 && !state.searchError && (
+              <div className={styles.emptyWrap}>
+                Sin espacios disponibles para los filtros seleccionados. Prueba otra fecha u horario.
+              </div>
+            )}
+
+            <div className={styles.mapCard}>
+              <FloorMap
+                floorId={state.filters.floor_id}
+                availableSpaces={state.availableSpaces}
+                selectedSpaceId={state.selectedSpace?.id ?? null}
+                onSelectSpace={handleSelectSpace}
+                isLoading={state.isSearching}
+                hasSearched={state.hasSearched}
+                reservationDate={state.filters.reservation_date}
+                onCategoriesLoaded={handleCategoriesLoaded}
+              />
+            </div>
+            {state.recommendations && (
+              <section className={styles.aiPanel}>
+                <div className={styles.aiHeader}>
+                  <div>
+                    <span className={styles.aiEyebrow}>Predicción IA</span>
+                    <h3>Ocupación {state.recommendations.prediction_label}</h3>
+                  </div>
+                  <strong>{Math.round(state.recommendations.predicted_occupancy * 100)}%</strong>
+                </div>
+                <div className={styles.aiRecommendations}>
+                  {state.recommendations.recommendations.map((item) => (
+                    <button
+                      key={item.space.id}
+                      type="button"
+                      className={styles.aiRecommendation}
+                      onClick={() => handleSelectSpace(item.space)}
+                    >
+                      <span>{item.space.space_number}</span>
+                      <small>{item.reasons[0]}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </main>
+
+          <aside className={`${styles.sidePanel} ${state.selectedSpace ? styles.sidePanelOpen : ''}`}>
+            <div className={styles.selectedCard}>
+              <SelectedSpacePanel
+                space={state.selectedSpace}
+                filters={state.filters}
+                onContinue={handleContinue}
+              />
+            </div>
+          </aside>
+        </section>
+      </div>
+
+      {state.showConfirmationModal && state.selectedSpace && (
+        <ConfirmationModal
+          isOpen={state.showConfirmationModal}
+          space={state.selectedSpace}
+          filters={state.filters}
+          onConfirm={handleConfirm}
+          onCancel={handleCancelModal}
+          onDismissError={() => setState((prev) => ({ ...prev, confirmError: null }))}
+          isLoading={state.isConfirming}
+          error={state.confirmError}
+        />
+      )}
+
+      {state.showSuccessModal && state.confirmedReservation && state.selectedSpace && (
+        <SuccessModal
+          isOpen={state.showSuccessModal}
+          reservation={state.confirmedReservation}
+          space={state.selectedSpace}
+          filters={state.filters}
+          onViewReservations={handleViewReservations}
+        />
+      )}
+    </AppShell>
+  )
+}

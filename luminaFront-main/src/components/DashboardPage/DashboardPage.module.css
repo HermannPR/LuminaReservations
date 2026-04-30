@@ -1,0 +1,829 @@
+/* ── Keyframes ───────────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* transform-based shimmer — compositor only, no background-position paint */
+@keyframes shimmer {
+  from { transform: translateX(-150%); }
+  to   { transform: translateX(150%); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(60px) scale(0.9); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes firePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+/* ── Layout ──────────────────────────────────────────────────── */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Greeting ────────────────────────────────────────────────── */
+
+.greeting {
+  padding: 2px 4px 0;
+  animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.greetingDate {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7500c0;
+}
+
+.greetingName {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.4vw, 2rem);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  color: #18151f;
+}
+
+/* ── Loading / Global error ──────────────────────────────────── */
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.globalError {
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: #fff0f0;
+  border: 1px solid rgba(200, 0, 0, 0.14);
+  color: #b00;
+  font-size: 0.95rem;
+  animation: autoDismissFade 5s ease forwards;
+}
+
+/* ── Section wrapper ─────────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #7500c0;
+}
+
+/* ── Card stagger cascade ────────────────────────────────────── */
+
+.section:nth-child(1) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both; }
+.section:nth-child(2) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 110ms both; }
+.section:nth-child(3) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both; }
+.section:nth-child(4) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 210ms both; }
+.section:nth-child(5) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both; }
+.section:nth-child(6) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 310ms both; }
+
+/* ── Today card ──────────────────────────────────────────────── */
+
+.todayCard {
+  display: flex;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.13);
+  box-shadow: 0 12px 32px rgba(70, 0, 115, 0.1);
+  overflow: hidden;
+  will-change: transform;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.todayCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(70, 0, 115, 0.14);
+}
+
+.todayAccent {
+  width: 5px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #a100ff, #7500c0);
+}
+
+.todayInner {
+  flex: 1;
+  min-width: 0;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.todayTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.todayChip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* ── Today main info ─────────────────────────────────────────── */
+
+.todayMain {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spaceInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.spaceNumber {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: #18151f;
+  line-height: 1;
+}
+
+.floorName {
+  font-size: 0.9rem;
+  color: #5f5872;
+  font-weight: 500;
+}
+
+.timeRange {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #460073;
+  white-space: nowrap;
+}
+
+/* ── Today actions row ───────────────────────────────────────── */
+
+.todayActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkInHelper {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.helperPending { color: #5f5872; }
+.helperReady   { color: #008c72; display: flex; align-items: center; gap: 6px; }
+.helperDone    { color: #0055cc; }
+.helperClosed  { color: #7d7d7d; }
+
+.pulseDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #008c72;
+  flex-shrink: 0;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.actionBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cancelTodayBtn {
+  padding: 9px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(117, 0, 192, 0.22);
+  background: transparent;
+  color: #460073;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.cancelTodayBtn:hover:not(:disabled) {
+  background: rgba(161, 0, 255, 0.07);
+  transform: translateY(-1px);
+}
+
+.cancelTodayBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.checkInBtn {
+  padding: 9px 20px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(117, 0, 192, 0.1);
+  color: #7500c0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  font-family: inherit;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.checkInBtnReady {
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(117, 0, 192, 0.32);
+}
+
+.checkInBtnReady:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(117, 0, 192, 0.44);
+}
+
+.checkInBtn:disabled {
+  opacity: 0.6;
+}
+
+.checkedInConfirm {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #008c72;
+}
+
+.inlineError {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #b00;
+  font-weight: 600;
+  animation: autoDismissFade 5s ease forwards;
+}
+
+/* ── Empty today card ────────────────────────────────────────── */
+
+.emptyTodayCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px dashed rgba(117, 0, 192, 0.2);
+  flex-wrap: wrap;
+  transition: transform 200ms ease;
+}
+
+.emptyTodayCard:hover {
+  transform: translateY(-2px);
+}
+
+.emptyTodayText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.emptyTodayTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #18151f;
+}
+
+.nextUp {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #5f5872;
+}
+
+.bookNowBtn {
+  display: inline-block;
+  padding: 11px 22px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(117, 0, 192, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.bookNowBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(117, 0, 192, 0.42);
+}
+
+/* ── Quick actions grid ──────────────────────────────────────── */
+
+.quickActionsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.actionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  box-shadow: 0 8px 22px rgba(70, 0, 115, 0.07);
+  text-decoration: none;
+  color: inherit;
+  will-change: transform;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.actionCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(70, 0, 115, 0.16);
+}
+
+.actionCard:nth-child(1) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+.actionCard:nth-child(2) { animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 170ms both; }
+
+.actionIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(161, 0, 255, 0.12), rgba(117, 0, 192, 0.06));
+  color: #7500c0;
+  margin-bottom: 4px;
+}
+
+.actionLabel {
+  font-size: 0.97rem;
+  font-weight: 800;
+  color: #18151f;
+  letter-spacing: -0.02em;
+}
+
+.actionSub {
+  font-size: 0.82rem;
+  color: #5f5872;
+}
+
+/* ── Section header row ──────────────────────────────────────── */
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionLink {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #7500c0;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: color 160ms ease;
+}
+
+.sectionLink:hover {
+  color: #a100ff;
+}
+
+/* ── Recent history ──────────────────────────────────────────── */
+
+.recentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recentItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.08);
+  flex-wrap: wrap;
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.recentItem:hover {
+  transform: translateX(4px);
+  border-color: rgba(161, 0, 255, 0.16);
+}
+
+.recentLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 100px;
+}
+
+.recentSpace {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #18151f;
+  letter-spacing: -0.03em;
+}
+
+.recentFloor {
+  font-size: 0.82rem;
+  color: #5f5872;
+}
+
+.recentDate {
+  flex: 1;
+  font-size: 0.84rem;
+  color: #5f5872;
+}
+
+.recentBadge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* ── Real-time stub ──────────────────────────────────────────── */
+
+.realtimeStub {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.realtimeFloors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.realtimeFloorTile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: rgba(246, 243, 255, 0.7);
+  border: 1px solid rgba(117, 0, 192, 0.08);
+}
+
+.realtimeFloorName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #460073;
+}
+
+.realtimeSkeleton {
+  display: block;
+  height: 10px;
+  border-radius: 6px;
+  background: rgba(161, 0, 255, 0.08);   /* static base */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer sweep via transform — compositor only, replaces background-position paint */
+.realtimeSkeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(161, 0, 255, 0.22) 50%, transparent 100%);
+  animation: shimmer 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.realtimeHint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9b8fb0;
+  font-style: italic;
+}
+
+/* ── Streak widget — Moment of Impact ────────────────────────── */
+
+.streakCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #3a005f 0%, #460073 60%, #2d004a 100%);
+  border: 1px solid rgba(161, 0, 255, 0.25);
+  box-shadow:
+    0 12px 36px rgba(70, 0, 115, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  will-change: transform;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.streakCard:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 18px 48px rgba(70, 0, 115, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.07) inset;
+}
+
+.streakFire {
+  font-size: 2.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: firePulse 2s ease-in-out infinite;
+}
+
+.streakInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.streakCount {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.streakLabel {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.streakBest {
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.streakLink {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 160ms ease;
+}
+
+.streakLink:hover {
+  color: #ffffff;
+}
+
+/* ── Badge preview ───────────────────────────────────────────── */
+
+.badgePreviewList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badgeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.badgeChip:hover {
+  transform: translateY(-2px);
+}
+
+.badgeChipT1 { background: rgba(161, 0, 255, 0.08); color: #6a00cc; border-color: rgba(161, 0, 255, 0.15); }
+.badgeChipT2 { background: rgba(0, 100, 220, 0.08); color: #0050aa; border-color: rgba(0, 100, 220, 0.15); }
+.badgeChipT3 { background: rgba(0, 140, 114, 0.08); color: #006b57; border-color: rgba(0, 140, 114, 0.15); }
+.badgeChipT4 { background: rgba(200, 120, 0, 0.08); color: #9a5a00; border-color: rgba(200, 120, 0, 0.15); }
+.badgeChipT5 { background: linear-gradient(135deg, rgba(255, 180, 0, 0.12), rgba(255, 120, 0, 0.08)); color: #8a3a00; border-color: rgba(255, 140, 0, 0.2); }
+
+.noBadgeHint {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #9b8fb0;
+  padding: 12px 0 4px;
+}
+
+/* ── Badge toast ─────────────────────────────────────────────── */
+
+.badgeToast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+  pointer-events: none;
+}
+
+.badgeToastItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #fff;
+  box-shadow: 0 10px 32px rgba(70, 0, 115, 0.4);
+  animation: slideInRight 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards, autoDismissFade 5s ease forwards;
+  pointer-events: auto;
+}
+
+.badgeToastIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.badgeToastText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.badgeToastTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.8;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.badgeToastName {
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .page {
+    gap: 18px;
+  }
+
+  .todayInner {
+    padding: 16px;
+  }
+
+  .spaceInfo {
+    flex-wrap: wrap;
+  }
+
+  .spaceNumber {
+    font-size: 1.7rem;
+  }
+
+  .actionBtns {
+    width: 100%;
+  }
+
+  .cancelTodayBtn,
+  .checkInBtn,
+  .bookNowBtn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .emptyTodayCard {
+    padding: 18px 16px;
+  }
+
+  .quickActionsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .realtimeFloors {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .todayMain {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .todayActions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .recentItem {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .recentLeft {
+    min-width: 0;
+  }
+
+  .streakCard {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 18px 16px;
+  }
+
+  .streakLink {
+    width: 100%;
+  }
+
+  .badgeToast {
+    inset: auto 12px calc(82px + env(safe-area-inset-bottom)) 12px;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section,
+  .greeting,
+  .todayCard,
+  .actionCard,
+  .badgeToastItem,
+  .streakFire,
+  .pulseDot,
+  .realtimeSkeleton::after {
+    animation: none;
+  }
+
+  .todayCard,
+  .emptyTodayCard,
+  .bookNowBtn,
+  .actionCard,
+  .recentItem,
+  .streakCard,
+  .badgeChip {
+    transition: none;
+  }
+
+  .todayCard:hover,
+  .emptyTodayCard:hover,
+  .bookNowBtn:hover,
+  .actionCard:hover,
+  .recentItem:hover,
+  .streakCard:hover,
+  .badgeChip:hover {
+    transform: none;
+  }
+}

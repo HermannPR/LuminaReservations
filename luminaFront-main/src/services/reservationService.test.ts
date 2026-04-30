@@ -1,0 +1,129 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  blockArea,
+  createReservation,
+  fetchAdminOverview,
+  fetchAvailability,
+  fetchFloorOccupancy,
+  fetchGuardParking,
+  fetchRecommendations,
+} from './reservationService'
+import type { FilterValues } from '../types/reservation'
+
+const TOKEN = 'token-123'
+
+function mockFetch(status: number, body: unknown) {
+  return vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  } as Response)
+}
+
+const FILTERS: FilterValues = {
+  reservation_date: '2099-06-01',
+  start_time: '09:00',
+  end_time: '10:00',
+  floor_id: 3,
+  priority_category: 'escritorio',
+}
+
+describe('reservationService', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('serializes availability filters into query params', async () => {
+    const spy = mockFetch(200, [])
+
+    await fetchAvailability(FILTERS, TOKEN)
+
+    const [url, init] = spy.mock.calls[0]
+    expect(String(url)).toContain('reservation_date=2099-06-01')
+    expect(String(url)).toContain('start_time=09%3A00')
+    expect(String(url)).toContain('end_time=10%3A00')
+    expect(String(url)).toContain('floor_id=3')
+    expect(String(url)).toContain('priority_category=escritorio')
+    expect((init?.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`)
+  })
+
+  it('fetches daily occupancy by floor and date', async () => {
+    const spy = mockFetch(200, [{ space_id: 1, intervals: [{ start_time: '09:00', end_time: '10:00' }] }])
+
+    const result = await fetchFloorOccupancy(3, '2099-06-01', TOKEN)
+
+    expect(result.success).toBe(true)
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/occupancy')
+    expect(String(spy.mock.calls[0][0])).toContain('floor_id=3')
+    expect(String(spy.mock.calls[0][0])).toContain('reservation_date=2099-06-01')
+  })
+
+  it('sends a workspace reservation with parking only as an attached option', async () => {
+    const spy = mockFetch(201, { reservation_id: 1 })
+
+    await createReservation({
+      space_id: 5,
+      reservation_date: '2099-06-01',
+      start_time: '09:00',
+      end_time: '10:00',
+      requiere_estacionamiento: true,
+    }, TOKEN)
+
+    const body = JSON.parse(spy.mock.calls[0][1]?.body as string)
+    expect(body).toEqual({
+      space_id: 5,
+      reservation_date: '2099-06-01',
+      start_time: '09:00',
+      end_time: '10:00',
+      requiere_estacionamiento: true,
+    })
+  })
+
+  it('returns parking conflict errors from the API', async () => {
+    mockFetch(409, { error: 'PARKING_CONFLICT', message: 'conflict' })
+
+    const result = await createReservation({
+      space_id: 5,
+      reservation_date: '2099-06-01',
+      start_time: '09:00',
+      end_time: '10:00',
+      requiere_estacionamiento: true,
+    }, TOKEN)
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error).toBe('PARKING_CONFLICT')
+      expect(result.unauthorized).toBe(false)
+    }
+  })
+
+  it('fetches AI recommendations with the same filter contract', async () => {
+    const spy = mockFetch(200, { predicted_occupancy: 0.5, prediction_label: 'media', recommendations: [] })
+
+    const result = await fetchRecommendations(FILTERS, TOKEN)
+
+    expect(result.success).toBe(true)
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/recommendations')
+    expect(String(spy.mock.calls[0][0])).toContain('floor_id=3')
+    expect(String(spy.mock.calls[0][0])).toContain('priority_category=escritorio')
+  })
+
+  it('uses admin and guard endpoints with bearer auth', async () => {
+    const spy = mockFetch(200, { date: '2099-06-01', blocked_areas: [] })
+
+    await fetchAdminOverview(TOKEN, '2099-06-01')
+    await fetchGuardParking(TOKEN, '2099-06-01')
+
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/admin/overview')
+    expect(String(spy.mock.calls[1][0])).toContain('/reservations/guard/parking')
+    expect((spy.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`)
+  })
+
+  it('posts area blocks for administrators', async () => {
+    const spy = mockFetch(201, { id: 1 })
+
+    await blockArea(TOKEN, { floor_id: 1, priority_category: 'escritorio', reason: 'Mantenimiento' })
+
+    const body = JSON.parse(spy.mock.calls[0][1]?.body as string)
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/admin/area-blocks')
+    expect(body).toEqual({ floor_id: 1, priority_category: 'escritorio', reason: 'Mantenimiento' })
+  })
+})

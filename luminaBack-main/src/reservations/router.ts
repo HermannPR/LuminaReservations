@@ -1,0 +1,68 @@
+import { Router } from "express"
+import { Pool } from "pg"
+import { requireAuth, requireRole } from "../shared/auth"
+import { SpaceRepository } from "./repositories/SpaceRepository"
+import { ReservationRepository } from "./repositories/ReservationRepository"
+import { FloorRepository } from "./repositories/FloorRepository"
+import { ParkingRepository } from "./repositories/ParkingRepository"
+import { StreakRepository } from "./repositories/StreakRepository"
+import { BadgeRepository } from "./repositories/BadgeRepository"
+import { ReservationService } from "./services/ReservationService"
+import { BadgeService } from "./services/BadgeService"
+import { ReservationController } from "./controllers/ReservationController"
+import { FloorController } from "./controllers/FloorController"
+import { AdminController } from "./controllers/AdminController"
+import { GuardController } from "./controllers/GuardController"
+
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+})
+
+const spaceRepository       = new SpaceRepository(db)
+const reservationRepository = new ReservationRepository(db)
+const floorRepository       = new FloorRepository(db)
+const parkingRepository     = new ParkingRepository(db)
+const streakRepository      = new StreakRepository(db)
+const badgeRepository       = new BadgeRepository(db)
+const badgeService          = new BadgeService(badgeRepository)
+
+export const reservationService = new ReservationService(
+  spaceRepository,
+  reservationRepository,
+  parkingRepository,
+  streakRepository,
+  badgeService
+)
+
+const reservationController = new ReservationController(
+  reservationService,
+  reservationRepository,
+  streakRepository,
+  badgeService
+)
+const floorController = new FloorController(floorRepository)
+const adminController = new AdminController(reservationRepository)
+const guardController = new GuardController(reservationRepository)
+
+export const reservationsRouter = Router()
+
+// ── Reservation endpoints ──────────────────────────────────────────────────────
+reservationsRouter.get("/availability",  requireAuth, (req, res) => reservationController.getAvailability(req, res))
+reservationsRouter.get("/occupancy",     requireAuth, (req, res) => reservationController.getFloorOccupancy(req, res))
+reservationsRouter.get("/recommendations", requireAuth, (req, res) => reservationController.getRecommendations(req, res))
+reservationsRouter.post("/",             requireAuth, (req, res) => reservationController.createReservation(req, res))
+reservationsRouter.post("/:id/check-in", requireAuth, (req, res) => reservationController.checkIn(req, res))
+reservationsRouter.delete("/:id",        requireAuth, (req, res) => reservationController.cancelReservation(req, res))
+reservationsRouter.get("/my",            requireAuth, (req, res) => reservationController.getMyReservations(req, res))
+reservationsRouter.get("/my-stats",      requireAuth, (req, res) => reservationController.getMyStats(req, res))
+
+// ── Admin / guard endpoints ───────────────────────────────────────────────────
+reservationsRouter.get("/admin/overview", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.getOverview(req, res))
+reservationsRouter.post("/admin/area-blocks", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.blockArea(req, res))
+reservationsRouter.delete("/admin/area-blocks/:id", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.unblockArea(req, res))
+reservationsRouter.get("/guard/parking", requireAuth, requireRole(["guard", "guardia"]), (req, res) => guardController.getParkingReservations(req, res))
+
+// ── Floor endpoints ────────────────────────────────────────────────────────────
+reservationsRouter.get("/floors",             requireAuth, (req, res) => floorController.getFloors(req, res))
+reservationsRouter.get("/floors/:id/spaces",  requireAuth, (req, res) => floorController.getFloorSpaces(req, res))

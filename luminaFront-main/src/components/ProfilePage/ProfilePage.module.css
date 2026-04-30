@@ -1,0 +1,248 @@
+.page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.profileCard {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  border-radius: 22px;
+  box-shadow: 0 12px 30px rgba(70, 0, 115, 0.08);
+}
+
+.profileCard {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+}
+
+.avatarLg {
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #a100ff, #460073);
+  color: #ffffff;
+  width: 86px;
+  height: 86px;
+  font-size: 1.45rem;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(70, 0, 115, 0.18);
+}
+
+.avatarLg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.infoGrid > div {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  box-shadow: 0 10px 24px rgba(70, 0, 115, 0.06);
+}
+
+.infoLabel {
+  display: block;
+  color: #7500c0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.profileCopy {
+  min-width: 0;
+  flex: 1;
+}
+
+.profileCopy h3 {
+  margin: 0;
+  color: #18151f;
+  letter-spacing: -0.03em;
+}
+
+.profileCopy p {
+  margin: 4px 0 0;
+  color: #6b6380;
+  font-size: 0.9rem;
+}
+
+.profileCopy span {
+  display: block;
+  margin-top: 6px;
+  color: #7500c0;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.photoActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photoActions {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.fileInput {
+  display: none;
+}
+
+.primaryBtn,
+.ghostBtn,
+.disabledBtn {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.primaryBtn {
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(117, 0, 192, 0.22);
+}
+
+.primaryBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(117, 0, 192, 0.28);
+}
+
+.ghostBtn {
+  border: 1px solid rgba(117, 0, 192, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  color: #460073;
+}
+
+.ghostBtn:hover:not(:disabled) {
+  background: rgba(161, 0, 255, 0.07);
+}
+
+.disabledBtn {
+  background: rgba(117, 0, 192, 0.08);
+  color: #7b748f;
+  cursor: default;
+}
+
+.primaryBtn:disabled,
+.ghostBtn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.errorMsg,
+.successMsg {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 12px 28px rgba(24, 21, 31, 0.08);
+  animation: autoDismissFade 5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+.errorMsg::after,
+.successMsg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  transform-origin: left center;
+  animation: autoDismissProgress 5s linear forwards;
+}
+
+.errorMsg {
+  color: #c12d44;
+  background: rgba(255, 50, 70, 0.08);
+  border: 1px solid rgba(255, 50, 70, 0.12);
+}
+
+.errorMsg::after {
+  background: linear-gradient(90deg, #ff3246, rgba(255, 50, 70, 0.24));
+}
+
+.successMsg {
+  color: #0b7a63;
+  background: rgba(15, 181, 132, 0.1);
+  border: 1px solid rgba(15, 181, 132, 0.18);
+}
+
+.successMsg::after {
+  background: linear-gradient(90deg, #05b884, rgba(15, 181, 132, 0.24));
+}
+
+@media (max-width: 640px) {
+  .page {
+    gap: 12px;
+  }
+
+  .profileCard {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .photoActions {
+    width: 100%;
+  }
+
+  .primaryBtn,
+  .ghostBtn,
+  .disabledBtn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryBtn,
+  .ghostBtn,
+  .disabledBtn {
+    transition: none;
+  }
+
+  .primaryBtn:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .errorMsg,
+  .successMsg,
+  .errorMsg::after,
+  .successMsg::after {
+    animation: none;
+  }
+}

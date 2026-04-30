@@ -1,0 +1,236 @@
+.pageContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.filterSection {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.filterCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 245, 252, 0.98));
+  border: 1px solid rgba(117, 0, 192, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(70, 0, 115, 0.07);
+  padding: 14px 18px;
+}
+
+.mapRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mapMain {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.errorWrap {
+  flex-shrink: 0;
+}
+
+.emptyWrap {
+  flex-shrink: 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.22);
+  color: #7a5800;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.mapCard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 245, 252, 0.98));
+  border: 1px solid rgba(117, 0, 192, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(70, 0, 115, 0.07);
+  padding: 12px;
+  min-width: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.aiPanel {
+  flex-shrink: 0;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(24, 21, 31, 0.96), rgba(70, 0, 115, 0.92));
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(24, 21, 31, 0.18);
+}
+
+.aiHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.aiEyebrow {
+  display: block;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.aiHeader h3 {
+  margin: 2px 0 0;
+  color: #ffffff;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.aiHeader strong {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.aiRecommendations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+
+.aiRecommendation {
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.aiRecommendation:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.aiRecommendation span {
+  display: block;
+  font-weight: 900;
+}
+
+.aiRecommendation small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.3;
+}
+
+/* Sliding sidebar — 0 → open */
+.sidePanel {
+  width: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidePanelOpen {
+  width: 340px;
+}
+
+.selectedCard {
+  width: 318px;
+  margin-left: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(117, 0, 192, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(70, 0, 115, 0.07);
+  overflow: hidden;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 900px) {
+  .pageContent,
+  .mapMain,
+  .mapCard {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .mapRow {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .sidePanel,
+  .sidePanelOpen {
+    width: 100%;
+    overflow: visible;
+    transition: none;
+  }
+
+  .selectedCard {
+    width: 100%;
+    margin-left: 0;
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageContent {
+    gap: 10px;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .filterCard,
+  .mapCard,
+  .selectedCard {
+    border-radius: 18px;
+  }
+
+  .filterCard {
+    padding: 12px 14px;
+  }
+
+  .mapCard {
+    padding: 8px;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .pageContent {
+    gap: 8px;
+  }
+
+  .filterCard {
+    padding: 10px;
+  }
+
+  .mapCard {
+    padding: 6px;
+    border-radius: 16px;
+  }
+
+  .emptyWrap {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.82rem;
+  }
+}

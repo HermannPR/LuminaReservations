@@ -1,0 +1,231 @@
+.page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #5f5872;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.toolbar input {
+  min-height: 42px;
+  border: 1px solid rgba(117, 0, 192, 0.14);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #18151f;
+  font: inherit;
+  padding: 0 12px;
+}
+
+.toolbar input:focus {
+  outline: none;
+  border-color: rgba(161, 0, 255, 0.42);
+  box-shadow: 0 0 0 3px rgba(161, 0, 255, 0.1);
+}
+
+.countBox {
+  min-width: 96px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #18151f;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(24, 21, 31, 0.16);
+}
+
+.countBox span {
+  display: block;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.countBox strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.zoneGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 14px;
+}
+
+.zonePanel,
+.emptyState {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 12px 30px rgba(70, 0, 115, 0.07);
+}
+
+.zonePanel {
+  padding: 16px;
+}
+
+.zoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.zoneHeader h3 {
+  margin: 0;
+  color: #18151f;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.zoneHeader span {
+  min-width: 32px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(161, 0, 255, 0.1);
+  color: #7500c0;
+  font-weight: 900;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(246, 243, 255, 0.68);
+  border: 1px solid rgba(117, 0, 192, 0.08);
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a100ff, #460073);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(70, 0, 115, 0.18);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #18151f;
+}
+
+.cardTop strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardTop span {
+  color: #7500c0;
+  font-weight: 900;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+  color: #6b6380;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.emptyState {
+  padding: 28px;
+  color: #6b6380;
+  font-weight: 700;
+  text-align: center;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.errorMsg {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  color: #c12d44;
+  background: rgba(255, 50, 70, 0.08);
+  border: 1px solid rgba(255, 50, 70, 0.12);
+  font-size: 0.9rem;
+  font-weight: 800;
+  animation: autoDismissFade 5s ease forwards;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar label,
+  .toolbar input,
+  .countBox {
+    width: 100%;
+  }
+
+  .card {
+    align-items: flex-start;
+  }
+
+  .cardTop {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .errorMsg {
+    animation: none;
+  }
+}

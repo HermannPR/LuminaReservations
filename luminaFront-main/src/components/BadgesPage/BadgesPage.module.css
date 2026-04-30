@@ -1,0 +1,312 @@
+/* ── Keyframes ───────────────────────────────────────────────── */
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmerSweep {
+  0%   { transform: translateX(-100%) skewX(-12deg); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateX(200%) skewX(-12deg); opacity: 0; }
+}
+
+@keyframes firePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+/* ── Wrapper ─────────────────────────────────────────────────── */
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.errorMsg {
+  color: #c12d44;
+  font-size: 0.92rem;
+  padding: 1rem;
+  background: rgba(255, 50, 70, 0.07);
+  border: 1px solid rgba(255, 50, 70, 0.12);
+  border-radius: 14px;
+  animation: autoDismissFade 5s ease forwards;
+}
+
+/* ── Stats bar — Moment of Impact ────────────────────────────── */
+
+.statsBar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 22px 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #3a005f 0%, #460073 60%, #2d004a 100%);
+  border: 1px solid rgba(161, 0, 255, 0.25);
+  box-shadow:
+    0 12px 36px rgba(70, 0, 115, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+}
+
+.statItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.statValue {
+  font-size: 2.1rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  text-align: center;
+}
+
+.statDivider {
+  width: 1px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+/* ── Tier section ─────────────────────────────────────────────── */
+
+.tierSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: cardIn 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tierSection:nth-child(2) { animation-delay: 100ms; }
+.tierSection:nth-child(3) { animation-delay: 150ms; }
+.tierSection:nth-child(4) { animation-delay: 200ms; }
+.tierSection:nth-child(5) { animation-delay: 250ms; }
+.tierSection:nth-child(6) { animation-delay: 300ms; }
+
+.tierHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tierPill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.tierPill1 { background: rgba(161, 0, 255, 0.1);  color: #6a00cc; }
+.tierPill2 { background: rgba(0, 100, 220, 0.1);  color: #0050aa; }
+.tierPill3 { background: rgba(0, 140, 114, 0.1);  color: #006b57; }
+.tierPill4 { background: rgba(200, 120, 0, 0.1);  color: #9a5a00; }
+.tierPill5 { background: linear-gradient(135deg, rgba(255, 180, 0, 0.15), rgba(255, 80, 0, 0.1)); color: #8a3a00; }
+
+.tierName {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #18151f;
+  letter-spacing: -0.01em;
+}
+
+.tierProgress {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #9b8fb0;
+}
+
+/* ── Badge grid ───────────────────────────────────────────────── */
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+}
+
+.badgeCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+/* Shimmer sweep fires once on load for earned cards */
+.badgeCardEarned::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: shimmerSweep 900ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+  pointer-events: none;
+}
+
+.badgeCardEarned {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px rgba(70, 0, 115, 0.08);
+  will-change: transform;
+}
+
+.badgeCardEarned:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(70, 0, 115, 0.14);
+}
+
+.badgeCardLocked {
+  background: rgba(248, 246, 252, 0.7);
+  opacity: 0.55;
+}
+
+/* Tier accent borders for earned */
+.badgeCardEarned.badgeCardT1 { border-color: rgba(161, 0, 255, 0.18); }
+.badgeCardEarned.badgeCardT2 { border-color: rgba(0, 100, 220, 0.18); }
+.badgeCardEarned.badgeCardT3 { border-color: rgba(0, 140, 114, 0.18); }
+.badgeCardEarned.badgeCardT4 { border-color: rgba(200, 120, 0, 0.18); }
+.badgeCardEarned.badgeCardT5 { border-color: rgba(255, 140, 0, 0.28); box-shadow: 0 6px 18px rgba(255, 140, 0, 0.12); }
+
+.badgeIconWrap {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(117, 0, 192, 0.06);
+}
+
+.badgeIconEarned {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.badgeIconLocked {
+  font-size: 1.2rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.badgeCardBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.badgeName {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #18151f;
+  letter-spacing: -0.02em;
+}
+
+.badgeCardLocked .badgeName {
+  color: #5f5872;
+}
+
+.badgeDesc {
+  font-size: 0.78rem;
+  color: #7b748f;
+  line-height: 1.4;
+}
+
+.badgeEarnedDate {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #008c72;
+  margin-top: 3px;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .statsBar {
+    padding: 16px 18px;
+    border-radius: 18px;
+  }
+
+  .statValue {
+    font-size: 1.7rem;
+  }
+
+  .badgeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .statsBar {
+    padding: 14px 12px;
+  }
+
+  .statValue {
+    font-size: 1.45rem;
+  }
+
+  .statLabel {
+    font-size: 0.7rem;
+  }
+
+  .tierHeader {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tierProgress {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .badgeCard {
+    padding: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statsBar,
+  .tierSection,
+  .badgeCardEarned::after {
+    animation: none;
+  }
+
+  .badgeCard,
+  .badgeChip {
+    transition: none;
+  }
+
+  .badgeCardEarned:hover,
+  .badgeChip:hover {
+    transform: none;
+  }
+}

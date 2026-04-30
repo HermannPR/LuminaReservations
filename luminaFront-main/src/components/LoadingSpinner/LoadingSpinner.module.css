@@ -1,0 +1,21 @@
+/* LoadingSpinner — brand purple, smooth spin animation */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(161, 0, 255, 0.2);   /* Core Purple 1 at low opacity */
+  border-top-color: var(--color-purple-1, #a100ff);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}

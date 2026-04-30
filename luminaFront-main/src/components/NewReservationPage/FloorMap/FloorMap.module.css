@@ -1,0 +1,342 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.mapToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.tabRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tab {
+  padding: 0.28rem 0.75rem;
+  min-height: 34px;
+  border-radius: 20px;
+  border: 1.5px solid #a100ff;
+  background: transparent;
+  color: #a100ff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.tab:hover {
+  background: #f3e6ff;
+  transform: translateY(-1px);
+}
+
+.tabActive {
+  background: #a100ff;
+  color: #fff;
+}
+
+.tabActive:hover {
+  background: #7500c0;
+}
+
+.mapArea {
+  position: relative;
+  border: 1px solid rgba(117, 0, 192, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #ffffff;
+  flex: 1;
+  min-height: 420px;
+  aspect-ratio: 1.94 / 1;
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.mapWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Hint shown when floor plan loaded but no search yet */
+.searchHintOverlay {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 26, 26, 0.70);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+
+/* Hint shown when no floor plan loaded yet (before first search) */
+.centeredHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #9b8fb0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 24px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.emptyMessage {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #96968c;
+  font-size: 0.9rem;
+}
+
+.legend {
+  flex-shrink: 0;
+  padding: 0.15rem 0;
+}
+
+.occupancyBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(24, 21, 31, 0.42);
+}
+
+.occupancyDialog {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(24, 21, 31, 0.12);
+  box-shadow: 0 24px 70px rgba(24, 21, 31, 0.25);
+  padding: 18px;
+}
+
+.occupancyHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.occupancyEyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #7500c0;
+  text-transform: uppercase;
+}
+
+.occupancyTitle {
+  margin: 2px 0 0;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  color: #18151f;
+}
+
+.occupancyClose {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(24, 21, 31, 0.12);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #18151f;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.occupancyClose:hover {
+  background: rgba(117, 0, 192, 0.06);
+}
+
+.occupancyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.occupancyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(117, 0, 192, 0.06);
+  color: #18151f;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.occupancyItem > span:last-child {
+  color: #7500c0;
+  white-space: nowrap;
+}
+
+.occupantInfo {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.occupantAvatar {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a100ff, #460073);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(70, 0, 115, 0.18);
+}
+
+.occupantAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.occupantInfo span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #18151f;
+}
+
+.occupantInfo strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.occupantInfo small {
+  color: #6b6380;
+  font-size: 0.78rem;
+}
+
+.occupancyHint,
+.occupancyEmpty {
+  margin: 12px 0 0;
+  color: #5f5872;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .mapToolbar {
+    align-items: center;
+    flex-direction: row;
+    gap: 0.55rem;
+  }
+
+  .tabRow {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .tabRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mapArea {
+    flex: 0 0 auto;
+    min-height: 0;
+    height: clamp(280px, 62vw, 340px);
+  }
+
+  .searchHintOverlay {
+    max-width: calc(100% - 24px);
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .occupancyBackdrop {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .occupancyDialog {
+    border-radius: 18px;
+    padding: 16px;
+  }
+
+  .occupancyItem {
+    align-items: flex-start;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 430px) {
+  .mapToolbar {
+    gap: 0.45rem;
+  }
+
+  .tab {
+    padding-inline: 0.68rem;
+    font-size: 0.78rem;
+  }
+
+  .mapArea {
+    height: clamp(250px, 72vw, 300px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .occupancyClose {
+    transition: none;
+  }
+
+  .tab:hover {
+    transform: none;
+  }
+}

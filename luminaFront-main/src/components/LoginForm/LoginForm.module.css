@@ -1,0 +1,287 @@
+/* ── Keyframes ───────────────────────────────────────────────── */
+
+/* transform-based shimmer sweep — compositor only, no background-position paint */
+@keyframes buttonShimmer {
+  from { transform: translateX(-200%) skewX(-12deg); }
+  to   { transform: translateX(400%) skewX(-12deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  18%       { transform: translateX(-6px); }
+  36%       { transform: translateX(6px); }
+  54%       { transform: translateX(-4px); }
+  72%       { transform: translateX(4px); }
+  90%       { transform: translateX(-2px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Form ────────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #3e3850;
+  letter-spacing: -0.01em;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────── */
+
+.input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1.5px solid rgba(117, 0, 192, 0.13);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #17141f;
+  font-size: 0.97rem;
+  font-family: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 12px rgba(70, 0, 115, 0.04);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background 200ms ease,
+    transform 180ms ease;
+}
+
+.input::placeholder {
+  color: #a89dbe;
+}
+
+.input:hover:not(:disabled) {
+  border-color: rgba(117, 0, 192, 0.26);
+  transform: translateY(-1px);
+}
+
+.input:focus {
+  outline: none;
+  border-color: #a100ff;
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 4px rgba(161, 0, 255, 0.11),
+    0 8px 22px rgba(70, 0, 115, 0.09);
+}
+
+.input:disabled {
+  background: rgba(245, 243, 250, 0.85);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.inputError {
+  border-color: #d93a52 !important;
+  animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.inputError:focus {
+  box-shadow:
+    0 0 0 4px rgba(217, 58, 82, 0.1),
+    0 8px 20px rgba(200, 0, 50, 0.07) !important;
+}
+
+/* ── Password wrapper ────────────────────────────────────────── */
+
+.passwordWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordWrap .input {
+  padding-right: 48px;
+}
+
+.eyeBtn {
+  position: absolute;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: #9b90b0;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0;
+  transition: color 160ms ease, background 160ms ease;
+  flex-shrink: 0;
+}
+
+.eyeBtn:hover {
+  color: #7500c0;
+  background: rgba(117, 0, 192, 0.08);
+}
+
+/* ── Forgot password ─────────────────────────────────────────── */
+
+.forgotLink {
+  align-self: flex-end;
+  margin-top: -4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #7500c0;
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 160ms ease;
+}
+
+.forgotLink:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ── Submit button ───────────────────────────────────────────── */
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 54px;
+  margin-top: 8px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 0.97rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #ffffff;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+
+  background: linear-gradient(135deg, #7500c0, #a100ff);  /* static gradient */
+  box-shadow:
+    0 14px 30px rgba(117, 0, 192, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  will-change: transform;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+/* Shimmer sweep via ::before transform — compositor only, replaces background-position paint */
+.button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 70%
+  );
+  animation: buttonShimmer 3.5s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 20px 40px rgba(117, 0, 192, 0.28),
+    0 8px 60px rgba(255, 120, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(117, 0, 192, 0.22);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(161, 0, 255, 0.2),
+    0 14px 30px rgba(117, 0, 192, 0.26);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  animation: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.btnArrow {
+  display: flex;
+  align-items: center;
+  transition: transform 200ms ease;
+}
+
+.button:hover:not(:disabled) .btnArrow {
+  transform: translateX(3px);
+}
+
+/* ── Error banner ────────────────────────────────────────────── */
+
+.fieldError {
+  font-size: 0.8rem;
+  color: #d93a52;
+  padding-left: 3px;
+  animation: fadeIn 0.2s ease both;
+}
+
+@media (max-width: 520px) {
+  .form {
+    gap: 14px;
+  }
+
+  .input {
+    min-height: 50px;
+    font-size: 1rem;
+  }
+
+  .button {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  .button,
+  .btnArrow,
+  .eyeBtn,
+  .forgotLink {
+    animation: none;
+    transition: none;
+  }
+
+  .button::before {
+    display: none;
+  }
+
+  .input:hover:not(:disabled),
+  .input:focus,
+  .button:hover:not(:disabled),
+  .button:hover:not(:disabled) .btnArrow {
+    transform: none;
+  }
+}

@@ -1,0 +1,618 @@
+/* ── Keyframes ─────────────────────────────────────────────────── */
+
+@keyframes glowDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  35%       { transform: translate(30px, -20px) scale(1.1); }
+  70%       { transform: translate(-18px, 14px) scale(0.92); }
+}
+
+@keyframes glowDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-25px, 20px) scale(1.08); }
+  75%       { transform: translate(16px, -14px) scale(0.95); }
+}
+
+@keyframes sidebarIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Shell ─────────────────────────────────────────────────────── */
+
+.pageShell {
+  min-height: 100vh;
+  background: #38005e;
+  padding: 18px 18px 18px 0;
+}
+
+.frame {
+  height: calc(100vh - 36px);
+  display: flex;
+  background: #460073;
+  border-radius: 0 32px 32px 0;
+  overflow: hidden;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+
+.frame::before {
+  content: '';
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(161, 0, 255, 0.22), transparent 65%);
+  filter: blur(52px);
+  pointer-events: none;
+  top: -14%;
+  left: 0%;
+  animation: glowDrift 18s ease-in-out infinite;
+  will-change: transform;
+  z-index: 0;
+}
+
+.frame::after {
+  content: '';
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(117, 0, 192, 0.18), transparent 65%);
+  filter: blur(44px);
+  pointer-events: none;
+  bottom: 6%;
+  left: 4%;
+  animation: glowDriftB 22s ease-in-out infinite;
+  will-change: transform;
+  z-index: 0;
+}
+
+.frameNoscroll {
+  min-height: unset;
+}
+
+/* ── Sidebar zone ───────────────────────────────────────────────── */
+
+.sidebarZone {
+  width: 64px;        /* icon rail — always visible, never disappears */
+  flex-shrink: 0;
+  overflow: hidden;
+  z-index: 60;
+  transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebarZone:hover {
+  width: 240px;
+}
+
+/* ── Sidebar panel ─────────────────────────────────────────────── */
+
+.sidebar {
+  position: relative;
+  width: 240px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 8px 18px;
+  background: linear-gradient(180deg, #2d004a 0%, #3a005f 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 4px 0 36px rgba(0, 0, 0, 0.28);
+  animation: sidebarIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Brand ─────────────────────────────────────────────────────── */
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding-bottom: 18px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* 48px wide — centers the 34px mark within the 64px zone */
+.brandIconArea {
+  width: 48px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brandMark {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.brandMarkImg {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
+.brandText {
+  overflow: hidden;
+  white-space: nowrap;
+  padding-left: 10px;
+  transition: opacity 180ms ease 80ms;
+}
+
+.sidebarZone:not(:hover) .brandText {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.brandTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.brandSubtitle {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── Nav ────────────────────────────────────────────────────────── */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  overflow: hidden;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.navLink:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+}
+
+.navLinkActive {
+  color: #ffffff;
+  background: rgba(161, 0, 255, 0.26);
+  box-shadow:
+    inset 3px 0 0 #a100ff,
+    0 4px 18px rgba(0, 0, 0, 0.2);
+}
+
+.navLinkActive:hover {
+  background: rgba(161, 0, 255, 0.34);
+}
+
+/* 48px icon wrap — centered in 64px zone: 8px sidebar padding + 48px wrap = 56px, icon centered at 32px from zone left */
+.navIconWrap {
+  width: 48px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 160ms ease;
+}
+
+.navLinkActive .navIconWrap,
+.navLink:hover .navIconWrap {
+  opacity: 1;
+}
+
+.navLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 14px;
+  letter-spacing: -0.01em;
+  transition: opacity 180ms ease 80ms;
+}
+
+.sidebarZone:not(:hover) .navLabel {
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+/* ── Sidebar footer ─────────────────────────────────────────────── */
+
+.sidebarFooter {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.logoutButton {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  padding: 0;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.logoutButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.logoutIconWrap {
+  width: 48px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logoutLabel {
+  white-space: nowrap;
+  padding-right: 14px;
+  transition: opacity 180ms ease 80ms;
+}
+
+.sidebarZone:not(:hover) .logoutLabel {
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+/* ── Main ───────────────────────────────────────────────────────── */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Topbar ─────────────────────────────────────────────────────── */
+
+.topbar {
+  padding: 20px 28px 14px;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.topbarCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.pageTitle {
+  font-size: clamp(1.55rem, 2vw, 2.1rem);
+  line-height: 1.04;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+  margin: 0;
+}
+
+.pageSubtitle {
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionSlot {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Content (white panel) ─────────────────────────────────────── */
+
+.content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+  border-radius: 24px 0 0 0;
+  padding: 28px 28px 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  transform: translateZ(0);
+  animation: pageEnter 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.contentNoscroll {
+  overflow: hidden;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+  .pageShell {
+    padding: 10px 10px 10px 0;
+  }
+
+  .frame {
+    height: calc(100vh - 20px);
+  }
+
+  .sidebarZone {
+    width: 56px;
+  }
+
+  .content {
+    padding: 18px 16px 18px;
+    border-radius: 18px 0 0 0;
+  }
+
+  .topbar {
+    padding: 14px 18px 10px;
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 640px) {
+  .pageShell {
+    padding: 6px 6px 6px 0;
+  }
+
+  .sidebarZone {
+    width: 52px;
+  }
+
+  .content {
+    padding: 14px 12px 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .pageShell {
+    min-height: 100dvh;
+    padding: 0;
+    background: #f6f4fb;
+  }
+
+  .frame,
+  .frameNoscroll {
+    min-height: 100dvh;
+    height: auto;
+    flex-direction: column;
+    border-radius: 0;
+    overflow: visible;
+    box-shadow: none;
+  }
+
+  .frame::before,
+  .frame::after {
+    display: none;
+  }
+
+  .main {
+    order: 1;
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .topbar {
+    min-height: auto;
+    padding: 18px 16px 12px;
+    align-items: flex-start;
+  }
+
+  .topbarActions {
+    width: 100%;
+  }
+
+  .actionSlot {
+    width: 100%;
+  }
+
+  .pageTitle {
+    font-size: 1.55rem;
+    line-height: 1.08;
+  }
+
+  .pageSubtitle {
+    margin-top: 4px;
+    font-size: 0.84rem;
+  }
+
+  .content,
+  .contentNoscroll {
+    flex: 1 1 auto;
+    min-height: auto;
+    overflow: visible;
+    border-radius: 20px 20px 0 0;
+    padding: 16px 14px calc(92px + env(safe-area-inset-bottom));
+    animation: none;
+  }
+
+  .sidebarZone,
+  .sidebarZone:hover {
+    order: 2;
+    position: sticky;
+    bottom: 0;
+    width: 100%;
+    overflow: visible;
+    z-index: 100;
+    transition: none;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    min-height: calc(68px + env(safe-area-inset-bottom));
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(45, 0, 74, 0.98);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 0;
+    box-shadow: 0 -14px 34px rgba(24, 0, 38, 0.28);
+    animation: none;
+  }
+
+  .brand {
+    display: none;
+  }
+
+  .nav {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+    gap: 4px;
+  }
+
+  .navLink {
+    min-width: 0;
+    min-height: 52px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px 3px;
+    border-radius: 14px;
+  }
+
+  .navLinkActive {
+    box-shadow:
+      inset 0 3px 0 #a100ff,
+      0 8px 20px rgba(0, 0, 0, 0.18);
+  }
+
+  .navIconWrap {
+    width: 100%;
+    height: 23px;
+  }
+
+  .navLabel,
+  .sidebarZone:not(:hover) .navLabel {
+    width: 100%;
+    opacity: 1;
+    padding: 0;
+    text-align: center;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.66rem;
+    line-height: 1.05;
+    letter-spacing: 0;
+    transition: none;
+  }
+
+  .sidebarFooter {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    flex: 0 0 auto;
+  }
+
+  .logoutButton {
+    width: 44px;
+    min-height: 52px;
+    justify-content: center;
+    border-radius: 14px;
+  }
+
+  .logoutIconWrap {
+    width: 44px;
+    height: 44px;
+  }
+
+  .logoutLabel {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar {
+    padding: 16px 14px 10px;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .content,
+  .contentNoscroll {
+    padding: 14px 10px calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .sidebar {
+    padding-inline: 6px;
+    gap: 4px;
+  }
+
+  .nav {
+    gap: 3px;
+  }
+
+  .navLink {
+    min-height: 50px;
+  }
+
+  .navLabel,
+  .sidebarZone:not(:hover) .navLabel {
+    font-size: 0.61rem;
+  }
+
+  .logoutButton {
+    width: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame::before,
+  .frame::after,
+  .sidebar,
+  .content {
+    animation: none;
+  }
+
+  .sidebarZone,
+  .brandText,
+  .navLabel,
+  .logoutLabel {
+    transition: none;
+  }
+}
