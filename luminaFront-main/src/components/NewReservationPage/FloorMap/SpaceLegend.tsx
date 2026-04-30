@@ -2,6 +2,7 @@ const LEGEND_ITEMS = [
   { label: 'Disponible', color: '#00c9a7' },
   { label: 'Ocupado', color: '#c0c0c0' },
   { label: 'Seleccionado', color: '#a100ff' },
+  { label: 'Recomendado IA', color: '#ffb000' },
 ];
 
 export function SpaceLegend() {

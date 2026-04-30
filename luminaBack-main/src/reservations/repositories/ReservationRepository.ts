@@ -11,6 +11,7 @@ import {
   ReservationResult,
   ReservationStatus,
   SpaceOccupancy,
+  UserPreferenceSignals,
   UserReservation,
 } from "../interfaces"
 import { ReservationError } from "../errors"
@@ -462,26 +463,134 @@ export class ReservationRepository {
     return Math.max(0, Math.min(1, value))
   }
 
+  async findUserPreferenceSignals(userId: number): Promise<UserPreferenceSignals> {
+    const result = await this.db.query<{
+      space_id: number
+      floor_id: number
+      priority_category: PriorityCategory
+      reservation_count: string
+    }>(
+      `SELECT s.id AS space_id,
+              s.floor_id,
+              s.priority_category,
+              COUNT(*)::text AS reservation_count
+       FROM reservations r
+       JOIN spaces s ON s.id = r.space_id
+       WHERE r.user_id = $1
+         AND r.space_id IS NOT NULL
+         AND r.status IN ('confirmada', 'activa')
+         AND r.reservation_date >= CURRENT_DATE - INTERVAL '180 days'
+       GROUP BY s.id, s.floor_id, s.priority_category`,
+      [userId]
+    )
+
+    const spaces = new Map<number, number>()
+    const floors = new Map<number, number>()
+    const categories = new Map<PriorityCategory, number>()
+    let totalReservations = 0
+
+    for (const row of result.rows) {
+      const count = Number(row.reservation_count)
+      totalReservations += count
+      spaces.set(row.space_id, (spaces.get(row.space_id) ?? 0) + count)
+      floors.set(row.floor_id, (floors.get(row.floor_id) ?? 0) + count)
+      categories.set(row.priority_category, (categories.get(row.priority_category) ?? 0) + count)
+    }
+
+    return {
+      total_reservations: totalReservations,
+      spaces,
+      floors,
+      categories,
+    }
+  }
+
+  async findSpaceDemandScores(filter: AvailabilityFilter): Promise<Map<number, number>> {
+    const params: unknown[] = [filter.reservation_date, filter.start_time, filter.end_time]
+    const conditions: string[] = []
+    let idx = 4
+
+    if (filter.floor_id !== undefined) {
+      conditions.push(`s.floor_id = $${idx++}`)
+      params.push(filter.floor_id)
+    }
+
+    if (filter.priority_category !== undefined) {
+      conditions.push(`s.priority_category = $${idx++}`)
+      params.push(filter.priority_category)
+    }
+
+    const extra = conditions.length ? `AND ${conditions.join(" AND ")}` : ""
+    const result = await this.db.query<{ space_id: number; demand_score: string }>(
+      `WITH candidate_spaces AS (
+         SELECT s.id
+         FROM spaces s
+         JOIN floors f ON f.id = s.floor_id
+         WHERE s.is_active = true
+           AND s.visual_only = false
+           AND f.is_active = true
+           ${extra}
+       ),
+       demand AS (
+         SELECT r.space_id,
+                COUNT(*)::decimal AS reservation_count
+         FROM reservations r
+         WHERE r.space_id IN (SELECT id FROM candidate_spaces)
+           AND r.status IN ('confirmada', 'activa')
+           AND EXTRACT(DOW FROM r.reservation_date::date) = EXTRACT(DOW FROM $1::date)
+           AND r.start_time < $3
+           AND r.end_time > $2
+           AND r.reservation_date >= $1::date - INTERVAL '120 days'
+           AND r.reservation_date < $1::date
+         GROUP BY r.space_id
+       )
+       SELECT d.space_id,
+              (d.reservation_count / NULLIF(MAX(d.reservation_count) OVER (), 0))::text AS demand_score
+       FROM demand d`,
+      params
+    )
+
+    return new Map(result.rows.map((row) => [
+      row.space_id,
+      Math.max(0, Math.min(1, Number(row.demand_score ?? 0))),
+    ]))
+  }
+
   async getAdminOverview(date: string): Promise<AdminKpiOverview> {
-    const [totals, byFloor, byCategory, blocks] = await Promise.all([
+    const [totals, byFloor, byCategory, blocks, statusBreakdown, hourlyDistribution, topUsers] = await Promise.all([
       this.db.query<{
         total_reservations: string
         active_reservations: string
+        confirmed_reservations: string
+        cancelled_reservations: string
+        no_show_reservations: string
         parking_reservations: string
         unique_users: string
         total_spaces: string
         occupied_spaces: string
       }>(
-        `WITH active_reservations AS (
+        `WITH daily_reservations AS (
            SELECT *
            FROM reservations
            WHERE reservation_date = $1
-             AND status IN ('confirmada', 'activa')
              AND space_id IS NOT NULL
+         ),
+         active_reservations AS (
+           SELECT *
+           FROM daily_reservations
+           WHERE status IN ('confirmada', 'activa')
+         ),
+         counted_reservations AS (
+           SELECT *
+           FROM daily_reservations
+           WHERE status IN ('confirmada', 'activa', 'no_show')
          )
          SELECT
-           (SELECT COUNT(*) FROM active_reservations)::text AS total_reservations,
+           (SELECT COUNT(*) FROM counted_reservations)::text AS total_reservations,
            (SELECT COUNT(*) FROM active_reservations WHERE status = 'activa')::text AS active_reservations,
+           (SELECT COUNT(*) FROM active_reservations WHERE status = 'confirmada')::text AS confirmed_reservations,
+           (SELECT COUNT(*) FROM daily_reservations WHERE status = 'cancelada')::text AS cancelled_reservations,
+           (SELECT COUNT(*) FROM daily_reservations WHERE status = 'no_show')::text AS no_show_reservations,
            (SELECT COUNT(*) FROM active_reservations WHERE parking_spot_id IS NOT NULL)::text AS parking_reservations,
            (SELECT COUNT(DISTINCT user_id) FROM active_reservations)::text AS unique_users,
            (SELECT COUNT(*) FROM spaces WHERE is_active = true AND visual_only = false)::text AS total_spaces,
@@ -528,11 +637,56 @@ export class ReservationRepository {
         [date]
       ),
       this.findAreaBlocks(),
+      this.db.query<{ status: ReservationStatus; count: string }>(
+        `SELECT status, COUNT(*)::text AS count
+         FROM reservations
+         WHERE reservation_date = $1
+           AND space_id IS NOT NULL
+         GROUP BY status
+         ORDER BY status`,
+        [date]
+      ),
+      this.db.query<{ hour: string; reservations: string }>(
+        `SELECT to_char(date_trunc('hour', start_time::time), 'HH24:MI') AS hour,
+                COUNT(*)::text AS reservations
+         FROM reservations
+         WHERE reservation_date = $1
+           AND status IN ('confirmada', 'activa')
+           AND space_id IS NOT NULL
+         GROUP BY date_trunc('hour', start_time::time)
+         ORDER BY date_trunc('hour', start_time::time)`,
+        [date]
+      ),
+      this.db.query<{
+        user_id: number
+        first_name: string
+        last_name: string
+        email: string
+        reservations: string
+      }>(
+        `SELECT u.id AS user_id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                COUNT(*)::text AS reservations
+         FROM reservations r
+         JOIN users u ON u.id = r.user_id
+         WHERE r.reservation_date = $1
+           AND r.status IN ('confirmada', 'activa')
+           AND r.space_id IS NOT NULL
+         GROUP BY u.id, u.first_name, u.last_name, u.email
+         ORDER BY COUNT(*) DESC, u.first_name
+         LIMIT 5`,
+        [date]
+      ),
     ])
 
     const total = totals.rows[0] ?? {
       total_reservations: "0",
       active_reservations: "0",
+      confirmed_reservations: "0",
+      cancelled_reservations: "0",
+      no_show_reservations: "0",
       parking_reservations: "0",
       unique_users: "0",
       total_spaces: "0",
@@ -545,11 +699,33 @@ export class ReservationRepository {
       date,
       total_reservations: Number(total.total_reservations),
       active_reservations: Number(total.active_reservations),
+      confirmed_reservations: Number(total.confirmed_reservations),
+      cancelled_reservations: Number(total.cancelled_reservations),
+      no_show_reservations: Number(total.no_show_reservations),
       parking_reservations: Number(total.parking_reservations),
+      parking_rate: Number(total.total_reservations) > 0
+        ? Number(total.parking_reservations) / Number(total.total_reservations)
+        : 0,
       unique_users: Number(total.unique_users),
       total_spaces: totalSpaces,
       occupied_spaces: occupiedSpaces,
       occupancy_rate: totalSpaces > 0 ? occupiedSpaces / totalSpaces : 0,
+      blocked_area_count: blocks.length,
+      status_breakdown: statusBreakdown.rows.map((row) => ({
+        status: row.status,
+        count: Number(row.count),
+      })),
+      hourly_distribution: hourlyDistribution.rows.map((row) => ({
+        hour: row.hour,
+        reservations: Number(row.reservations),
+      })),
+      top_users: topUsers.rows.map((row) => ({
+        user_id: row.user_id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        reservations: Number(row.reservations),
+      })),
       by_floor: byFloor.rows.map((row) => {
         const floorTotal = Number(row.total_spaces)
         const floorOccupied = Number(row.occupied_spaces)

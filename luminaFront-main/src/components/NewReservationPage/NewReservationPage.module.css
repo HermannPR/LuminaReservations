@@ -68,76 +68,11 @@
   overflow: hidden;
 }
 
-.aiPanel {
-  flex-shrink: 0;
-  padding: 14px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(24, 21, 31, 0.96), rgba(70, 0, 115, 0.92));
-  color: #ffffff;
-  box-shadow: 0 12px 28px rgba(24, 21, 31, 0.18);
-}
-
-.aiHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.aiEyebrow {
-  display: block;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.aiHeader h3 {
-  margin: 2px 0 0;
-  color: #ffffff;
-  font-size: 1rem;
-  letter-spacing: -0.02em;
-}
-
-.aiHeader strong {
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.aiRecommendations {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 8px;
-}
-
-.aiRecommendation {
-  min-height: 72px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  transition: background 160ms ease, transform 160ms ease;
-}
-
-.aiRecommendation:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.aiRecommendation span {
-  display: block;
-  font-weight: 900;
-}
-
-.aiRecommendation small {
-  display: block;
-  margin-top: 4px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.3;
+.aiMapCard {
+  border-color: rgba(255, 176, 0, 0.34);
+  box-shadow:
+    0 12px 30px rgba(70, 0, 115, 0.08),
+    0 0 0 3px rgba(255, 176, 0, 0.08);
 }
 
 /* Sliding sidebar — 0 → open */

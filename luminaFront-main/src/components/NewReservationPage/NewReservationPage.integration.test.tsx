@@ -58,13 +58,24 @@ describe('NewReservationPage integration', () => {
     vi.mocked(fetchRecommendations).mockResolvedValue({
       success: true,
       data: {
+        model: {
+          name: 'Lumina Workspace AI',
+          version: 'local-xai-v1.1',
+          confidence: 0.88,
+          factors: ['historial personal', 'colaboradores frecuentes', 'ocupación histórica'],
+        },
         predicted_occupancy: 0.82,
         prediction_label: 'alta',
         recommendations: [
           {
             space: recommendationSpace,
             score: 96,
-            reasons: ['Cerca de Ana Garcia, con quien sueles coincidir'],
+            confidence: 0.91,
+            ai_summary: 'Recomendado por colaboración cercana y 88% de ajuste al contexto.',
+            reasons: ['El modelo detectó afinidad con Ana Garcia y un asiento cercano en el mapa'],
+            signals: [
+              { label: 'Colaboración', value: 'Ana Garcia, 8 coincidencias históricas', weight: 28, strength: 0.95 },
+            ],
             nearby_user: {
               id: 11,
               email: 'ana@example.com',
@@ -80,9 +91,20 @@ describe('NewReservationPage integration', () => {
     })
     vi.mocked(fetchFloors).mockResolvedValue({
       success: true,
-      data: [{ id: 1, floor_number: 0, name: 'Planta Baja', plan_image_url: '/pb.png' }],
+      data: [{ id: 1, floor_number: 0, name: 'Planta Baja', plan_image_url: '/pb.png', is_active: true }],
     })
-    vi.mocked(fetchFloorSpaces).mockResolvedValue({ success: true, data: [] })
+    vi.mocked(fetchFloorSpaces).mockResolvedValue({
+      success: true,
+      data: [{
+        ...recommendationSpace,
+        layout_type: 'desk',
+        layout_direction: 'up',
+        layout_cx: 0.18,
+        layout_cy: 0.18,
+        layout_points: [{ x: 0.16, y: 0.16 }, { x: 0.2, y: 0.2 }],
+        visual_only: false,
+      }],
+    })
     vi.mocked(createReservation).mockResolvedValue({
       success: true,
       data: {
@@ -119,7 +141,7 @@ describe('NewReservationPage integration', () => {
     })
 
     const recommendation = await screen.findByRole('button', { name: /PB-21/i })
-    expect(screen.getByText(/Ocupación alta/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Mapa IA activo/i)).not.toBeInTheDocument()
 
     fireEvent.click(recommendation)
     fireEvent.click(screen.getByRole('button', { name: /^Confirmar reserva$/i }))

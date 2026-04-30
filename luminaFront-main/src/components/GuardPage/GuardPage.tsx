@@ -58,17 +58,45 @@ export function GuardPage(): JSX.Element {
     }, {})
   }, [items])
 
+  const activeCount = items.filter((item) => item.status === 'activa').length
+  const zoneCount = Object.keys(grouped).length
+  const nextReservation = items[0] ?? null
+
   return (
     <AppShell title="Guardia" subtitle="Reservas de estacionamiento del día">
       <div className={styles.page}>
-        <div className={styles.toolbar}>
-          <label>
+        <div className={styles.guardHero}>
+          <div className={styles.heroCopy}>
+            <span>Control de acceso</span>
+            <h3>Estacionamiento reservado</h3>
+            <p>Consulta placas operativas por zona, horario y persona antes de permitir el acceso.</p>
+          </div>
+          <label className={styles.dateControl}>
             <span>Fecha</span>
             <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
           </label>
-          <div className={styles.countBox}>
+        </div>
+
+        <div className={styles.summaryGrid}>
+          <div className={styles.summaryCard}>
             <span>Total</span>
             <strong>{items.length}</strong>
+            <small>reservas con cajón</small>
+          </div>
+          <div className={styles.summaryCard}>
+            <span>Activas</span>
+            <strong>{activeCount}</strong>
+            <small>check-in realizado</small>
+          </div>
+          <div className={styles.summaryCard}>
+            <span>Zonas</span>
+            <strong>{zoneCount}</strong>
+            <small>con ocupación</small>
+          </div>
+          <div className={styles.summaryCard}>
+            <span>Siguiente</span>
+            <strong>{nextReservation ? nextReservation.start_time : '--:--'}</strong>
+            <small>{nextReservation ? nextReservation.parking_spot_number : 'sin reservas'}</small>
           </div>
         </div>
 
@@ -99,13 +127,16 @@ export function GuardPage(): JSX.Element {
                       <div className={styles.cardMain}>
                         <div className={styles.cardTop}>
                           <strong>{reservation.user.first_name} {reservation.user.last_name}</strong>
-                          <span>{reservation.parking_spot_number}</span>
+                          <span className={styles.spotPill}>{reservation.parking_spot_number}</span>
                         </div>
                         <div className={styles.meta}>
                           <span>{reservation.start_time} - {reservation.end_time}</span>
                           <span>{reservation.floor_name} · {reservation.space_number}</span>
                           <span>#{reservation.reservation_code}</span>
                         </div>
+                        <span className={`${styles.statusChip} ${reservation.status === 'activa' ? styles.statusActive : ''}`}>
+                          {reservation.status === 'activa' ? 'Activa' : 'Confirmada'}
+                        </span>
                       </div>
                     </article>
                   ))}

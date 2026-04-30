@@ -8,10 +8,12 @@ import {
   AvailabilityFilter,
   CreateReservationInput,
   IntelligentRecommendation,
+  RecommendationSignal,
   RecommendationResult,
   ReservationResult,
   CheckInResult,
   Space,
+  UserPreferenceSignals,
 } from "../interfaces"
 import { getAllowedCheckInCidrs, getCheckInWindowOverrideMinutes } from "../config"
 
@@ -19,6 +21,15 @@ const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const CODE_LENGTH = 8
 const DEFAULT_TIMEZONE = process.env.RESERVATION_TIMEZONE ?? "America/Monterrey"
 const CHECK_IN_POST_START_MINUTES = 30
+const RECOMMENDATION_MODEL_NAME = "Lumina Workspace AI"
+const RECOMMENDATION_MODEL_VERSION = "local-xai-v1.1"
+const RECOMMENDATION_FACTORS = [
+  "historial personal de espacios, pisos y categorías",
+  "colaboradores frecuentes presentes en el horario",
+  "proximidad espacial en el mapa",
+  "ocupación histórica por día y franja horaria",
+  "demanda histórica por espacio",
+]
 
 export class ReservationService {
   constructor(
@@ -311,18 +322,57 @@ export class ReservationService {
       throw new ReservationError(400, "INVALID_TIME_RANGE", "El tiempo de fin debe ser mayor al tiempo de inicio")
     }
 
-    const [availableSpaces, occupants, frequentNeighbors, predictedOccupancy] = await Promise.all([
+    const [
+      availableSpaces,
+      occupants,
+      frequentNeighbors,
+      predictedOccupancy,
+      userPreferences,
+      spaceDemandScores,
+    ] = await Promise.all([
       this.spaceRepository.findAvailable(filter),
       this.reservationRepository.findCurrentOccupants(filter),
       this.reservationRepository.findFrequentNeighbors(userId),
       this.reservationRepository.findPredictedOccupancy(filter),
+      this.reservationRepository.findUserPreferenceSignals(userId),
+      this.reservationRepository.findSpaceDemandScores(filter),
     ])
 
-    const recommendations: IntelligentRecommendation[] = availableSpaces
+    const maxNeighborStrength = Math.max(1, ...Array.from(frequentNeighbors.values()))
+    const maxSpacePreference = this.maxMapValue(userPreferences.spaces)
+    const maxFloorPreference = this.maxMapValue(userPreferences.floors)
+    const maxCategoryPreference = this.maxMapValue(userPreferences.categories)
+    const topCategory = this.getTopPreference(userPreferences.categories)
+    const baseConfidence = this.clamp(
+      0.5 +
+        Math.min(0.22, userPreferences.total_reservations * 0.018) +
+        Math.min(0.16, frequentNeighbors.size * 0.025) +
+        Math.min(0.12, occupants.length * 0.012),
+      0.52,
+      0.94
+    )
+
+    const rankedRecommendations: IntelligentRecommendation[] = availableSpaces
       .map((space) => {
         const reasons: string[] = []
-        let score = 50
+        const signals: RecommendationSignal[] = []
         let nearbyUser: IntelligentRecommendation["nearby_user"] = null
+        let weightedScore = 0
+        let totalWeight = 0
+
+        const addSignal = (label: string, value: string, weight: number, strength: number) => {
+          const normalizedStrength = this.clamp(strength, 0, 1)
+          weightedScore += normalizedStrength * weight
+          totalWeight += weight
+          if (normalizedStrength >= 0.18) {
+            signals.push({
+              label,
+              value,
+              weight: Math.round(weight * 100),
+              strength: Number(normalizedStrength.toFixed(2)),
+            })
+          }
+        }
 
         const matchingNeighbors = occupants
           .filter((occupant) => occupant.floor_id === space.floor_id && frequentNeighbors.has(occupant.user.id))
@@ -331,46 +381,150 @@ export class ReservationService {
             relationshipStrength: frequentNeighbors.get(occupant.user.id) ?? 0,
             distance: this.distance(space.layout_cx, space.layout_cy, occupant.layout_cx, occupant.layout_cy),
           }))
-          .sort((a, b) => (a.distance - b.distance) || (b.relationshipStrength - a.relationshipStrength))
+          .sort((a, b) => {
+            const aStrength = a.relationshipStrength / maxNeighborStrength
+            const bStrength = b.relationshipStrength / maxNeighborStrength
+            const aScore = aStrength * 0.58 + Math.max(0, 1 - a.distance / 0.42) * 0.42
+            const bScore = bStrength * 0.58 + Math.max(0, 1 - b.distance / 0.42) * 0.42
+            return bScore - aScore
+          })
 
         const nearest = matchingNeighbors[0]
         if (nearest) {
-          const proximityBoost = Math.max(0, 35 - nearest.distance * 60)
-          const relationshipBoost = Math.min(20, nearest.relationshipStrength * 3)
-          score += proximityBoost + relationshipBoost
+          const relationshipSignal = this.clamp(nearest.relationshipStrength / maxNeighborStrength, 0, 1)
+          const proximitySignal = this.clamp(1 - nearest.distance / 0.42, 0, 1)
+          const collaboratorSignal = relationshipSignal * 0.58 + proximitySignal * 0.42
           nearbyUser = nearest.occupant.user
-          reasons.push(`Cerca de ${nearbyUser.first_name} ${nearbyUser.last_name}, con quien sueles coincidir`)
+          addSignal(
+            "Colaboración",
+            `${nearbyUser.first_name} ${nearbyUser.last_name}, ${nearest.relationshipStrength} coincidencias históricas`,
+            0.28,
+            collaboratorSignal
+          )
+          reasons.push(`El modelo detectó afinidad con ${nearbyUser.first_name} ${nearbyUser.last_name} y un asiento cercano en el mapa`)
+        } else {
+          addSignal("Colaboración", "Sin colaborador frecuente cercano en este horario", 0.28, 0.08)
         }
 
+        const exactSpacePreference = (userPreferences.spaces.get(space.id) ?? 0) / maxSpacePreference
+        const floorPreference = (userPreferences.floors.get(space.floor_id) ?? 0) / maxFloorPreference
+        const categoryPreference = space.priority_category
+          ? (userPreferences.categories.get(space.priority_category) ?? 0) / maxCategoryPreference
+          : 0
+        const habitSignal = this.clamp(
+          exactSpacePreference * 0.5 + floorPreference * 0.3 + categoryPreference * 0.2,
+          0,
+          1
+        )
+        addSignal(
+          "Patrón personal",
+          userPreferences.total_reservations > 0
+            ? `${Math.round(habitSignal * 100)}% de afinidad por historial reciente`
+            : "Historial insuficiente; se prioriza disponibilidad",
+          0.22,
+          userPreferences.total_reservations > 0 ? habitSignal : 0.35
+        )
+        if (habitSignal >= 0.42) {
+          reasons.push("Coincide con patrones de piso, categoría o espacio que has usado recientemente")
+        }
+
+        const categoryMatch =
+          filter.priority_category && space.priority_category === filter.priority_category
+            ? 1
+            : topCategory !== null && space.priority_category === topCategory
+              ? 0.72
+              : 0.42
+        addSignal(
+          "Tipo de espacio",
+          filter.priority_category && space.priority_category === filter.priority_category
+            ? "Coincide con el filtro seleccionado"
+            : topCategory !== null && space.priority_category === topCategory
+              ? "Similar a tu categoría más usada"
+              : "Categoría disponible sin preferencia fuerte",
+          0.12,
+          categoryMatch
+        )
         if (filter.priority_category && space.priority_category === filter.priority_category) {
-          score += 8
-          reasons.push("Coincide con el tipo de espacio filtrado")
+          reasons.push("Respeta el tipo de espacio que filtraste")
         }
 
-        if (predictedOccupancy >= 0.75) {
-          score += 7
-          reasons.push("Alta demanda prevista: conviene reservar pronto")
+        const demandSignal = spaceDemandScores.get(space.id) ?? predictedOccupancy
+        const availabilitySignal = this.clamp(1 - (demandSignal * 0.68 + predictedOccupancy * 0.32), 0, 1)
+        addSignal(
+          "Disponibilidad prevista",
+          `${this.formatPercent(predictedOccupancy)} de ocupación estimada; ${this.formatPercent(demandSignal)} de presión histórica del asiento`,
+          0.2,
+          availabilitySignal
+        )
+        if (predictedOccupancy >= 0.7) {
+          reasons.push("La IA prevé alta ocupación para esta franja, por eso prioriza asientos con menor presión histórica")
         } else if (predictedOccupancy <= 0.35) {
-          score += 5
-          reasons.push("Baja ocupación prevista para este horario")
+          reasons.push("La IA prevé baja ocupación, por eso optimiza comodidad y afinidad personal")
         }
+
+        const nonFrequentOccupants = occupants.filter(
+          (occupant) => occupant.floor_id === space.floor_id && !frequentNeighbors.has(occupant.user.id)
+        )
+        const nearestNonFrequentDistance = nonFrequentOccupants.reduce(
+          (min, occupant) => Math.min(min, this.distance(space.layout_cx, space.layout_cy, occupant.layout_cx, occupant.layout_cy)),
+          1
+        )
+        const quietnessSignal = nonFrequentOccupants.length === 0
+          ? 0.72
+          : this.clamp(nearestNonFrequentDistance / 0.46, 0.18, 1)
+        addSignal(
+          "Distribución del mapa",
+          nonFrequentOccupants.length === 0
+            ? "Zona despejada para el horario seleccionado"
+            : "Evita concentración excesiva alrededor del asiento",
+          0.12,
+          quietnessSignal
+        )
+
+        const layoutSignal = space.layout_cx !== null && space.layout_cy !== null ? 0.78 : 0.45
+        addSignal("Calidad de datos", "Coordenadas de mapa disponibles para scoring espacial", 0.06, layoutSignal)
 
         if (reasons.length === 0) {
-          reasons.push("Disponible y con buena distribución para el horario seleccionado")
+          reasons.push("El modelo eligió este espacio por disponibilidad, distribución y señales de uso reciente")
         }
+
+        const normalizedScore = totalWeight > 0 ? weightedScore / totalWeight : 0.5
+        const score = Math.round(52 + normalizedScore * 46)
+        const confidence = this.clamp(
+          baseConfidence + Math.min(0.04, signals.length * 0.008) + (nearest ? 0.03 : 0),
+          0.52,
+          0.96
+        )
+        const aiSummary = nearest
+          ? `Recomendado por colaboración cercana y ${Math.round(normalizedScore * 100)}% de ajuste al contexto.`
+          : `Recomendado por ${Math.round(normalizedScore * 100)}% de ajuste entre historial, demanda y disponibilidad.`
 
         return {
           space,
-          score: Math.round(score),
+          score,
+          confidence: Number(confidence.toFixed(2)),
+          ai_summary: aiSummary,
           reasons,
+          signals: signals.sort((a, b) => (b.strength * b.weight) - (a.strength * a.weight)).slice(0, 4),
           nearby_user: nearbyUser,
           predicted_occupancy: predictedOccupancy,
         }
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
+
+    const recommendations = filter.floor_id === undefined
+      ? this.pickDiverseFloorRecommendations(rankedRecommendations, 6)
+      : rankedRecommendations.slice(0, 6)
 
     return {
+      model: {
+        name: RECOMMENDATION_MODEL_NAME,
+        version: RECOMMENDATION_MODEL_VERSION,
+        confidence: recommendations.length > 0
+          ? Number((recommendations.slice(0, 3).reduce((sum, item) => sum + item.confidence, 0) / Math.min(3, recommendations.length)).toFixed(2))
+          : Number(baseConfidence.toFixed(2)),
+        factors: RECOMMENDATION_FACTORS,
+      },
       predicted_occupancy: predictedOccupancy,
       prediction_label:
         predictedOccupancy >= 0.7 ? "alta" :
@@ -383,6 +537,63 @@ export class ReservationService {
   private distance(ax: number | null, ay: number | null, bx: number | null, by: number | null): number {
     if (ax == null || ay == null || bx == null || by == null) return 1
     return Math.hypot(ax - bx, ay - by)
+  }
+
+  private pickDiverseFloorRecommendations(
+    rankedRecommendations: IntelligentRecommendation[],
+    limit: number
+  ): IntelligentRecommendation[] {
+    if (rankedRecommendations.length <= limit) return rankedRecommendations
+
+    const byFloor = new Map<number, IntelligentRecommendation[]>()
+    for (const recommendation of rankedRecommendations) {
+      const list = byFloor.get(recommendation.space.floor_id) ?? []
+      list.push(recommendation)
+      byFloor.set(recommendation.space.floor_id, list)
+    }
+
+    const selected = new Map<number, IntelligentRecommendation>()
+    const floorLeaders = Array.from(byFloor.values())
+      .map((items) => items[0])
+      .sort((a, b) => b.score - a.score)
+
+    for (const recommendation of floorLeaders) {
+      if (selected.size >= limit) break
+      selected.set(recommendation.space.id, recommendation)
+    }
+
+    for (const recommendation of rankedRecommendations) {
+      if (selected.size >= limit) break
+      if (!selected.has(recommendation.space.id)) {
+        selected.set(recommendation.space.id, recommendation)
+      }
+    }
+
+    return Array.from(selected.values()).sort((a, b) => b.score - a.score)
+  }
+
+  private maxMapValue(map: Map<unknown, number>): number {
+    return Math.max(1, ...Array.from(map.values()))
+  }
+
+  private getTopPreference<T>(map: Map<T, number>): T | null {
+    let topKey: T | null = null
+    let topValue = 0
+    for (const [key, value] of map.entries()) {
+      if (value > topValue) {
+        topKey = key
+        topValue = value
+      }
+    }
+    return topKey
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value))
+  }
+
+  private formatPercent(value: number): string {
+    return `${Math.round(this.clamp(value, 0, 1) * 100)}%`
   }
 
   private getCurrentWallClockTime(): number {

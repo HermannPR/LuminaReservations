@@ -243,9 +243,15 @@
 //   );
 // }
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { FilterValues, RecommendationResult, SpaceAvailability, ReservationResponse } from '../../types/reservation'
+import type {
+  AiSpaceRecommendationMarker,
+  FilterValues,
+  RecommendationResult,
+  SpaceAvailability,
+  ReservationResponse,
+} from '../../types/reservation'
 import { getSession } from '../../services/tokenStore'
 import { fetchAvailability, createReservation, fetchRecommendations } from '../../services/reservationService'
 import { mapReservationError } from '../../utils/reservationValidator'
@@ -303,6 +309,20 @@ function getDefaultFilters(): FilterValues {
     floor_id: null,
     priority_category: null,
   }
+}
+
+function getRecommendationReason(item: RecommendationResult['recommendations'][number]): string {
+  if (item.nearby_user) {
+    return `Cerca de ${item.nearby_user.first_name} ${item.nearby_user.last_name}`
+  }
+
+  const strongSignal = item.signals.find((signal) => signal.strength >= 0.55)
+  if (strongSignal?.label === 'Patrón personal') return 'Coincide con tu historial de uso'
+  if (strongSignal?.label === 'Disponibilidad prevista') return 'Buena disponibilidad para este horario'
+  if (strongSignal?.label === 'Tipo de espacio') return 'Coincide con la zona que buscas'
+  if (strongSignal?.label === 'Distribución del mapa') return 'Mejor distribución alrededor del espacio'
+
+  return 'Buen ajuste por ocupación y disponibilidad'
 }
 
 export function NewReservationPage(): JSX.Element {
@@ -496,6 +516,20 @@ export function NewReservationPage(): JSX.Element {
 
   // Keep ref in sync after each render so auto-search always calls the latest closure
   handleSearchRef.current = handleSearch
+  const aiRecommendedSpaces = useMemo(
+    () => new Map<number, AiSpaceRecommendationMarker>(
+      state.recommendations?.recommendations.map((item) => [
+        item.space.id,
+        {
+          floor_id: item.space.floor_id,
+          score: item.score,
+          reason: getRecommendationReason(item),
+        },
+      ]) ?? []
+    ),
+    [state.recommendations]
+  )
+  const recommendationCount = state.recommendations?.recommendations.length ?? 0
 
   return (
     <AppShell title="Nueva Reserva" noscroll>
@@ -529,7 +563,7 @@ export function NewReservationPage(): JSX.Element {
               </div>
             )}
 
-            <div className={styles.mapCard}>
+            <div className={`${styles.mapCard} ${recommendationCount > 0 ? styles.aiMapCard : ''}`}>
               <FloorMap
                 floorId={state.filters.floor_id}
                 availableSpaces={state.availableSpaces}
@@ -538,33 +572,10 @@ export function NewReservationPage(): JSX.Element {
                 isLoading={state.isSearching}
                 hasSearched={state.hasSearched}
                 reservationDate={state.filters.reservation_date}
+                aiRecommendedSpaces={aiRecommendedSpaces}
                 onCategoriesLoaded={handleCategoriesLoaded}
               />
             </div>
-            {state.recommendations && (
-              <section className={styles.aiPanel}>
-                <div className={styles.aiHeader}>
-                  <div>
-                    <span className={styles.aiEyebrow}>Predicción IA</span>
-                    <h3>Ocupación {state.recommendations.prediction_label}</h3>
-                  </div>
-                  <strong>{Math.round(state.recommendations.predicted_occupancy * 100)}%</strong>
-                </div>
-                <div className={styles.aiRecommendations}>
-                  {state.recommendations.recommendations.map((item) => (
-                    <button
-                      key={item.space.id}
-                      type="button"
-                      className={styles.aiRecommendation}
-                      onClick={() => handleSelectSpace(item.space)}
-                    >
-                      <span>{item.space.space_number}</span>
-                      <small>{item.reasons[0]}</small>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
           </main>
 
           <aside className={`${styles.sidePanel} ${state.selectedSpace ? styles.sidePanelOpen : ''}`}>

@@ -24,6 +24,9 @@
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
   padding: 0.28rem 0.75rem;
   min-height: 34px;
   border-radius: 20px;
@@ -48,6 +51,37 @@
 
 .tabActive:hover {
   background: #7500c0;
+}
+
+.tabRecommendation {
+  min-width: 28px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 999px;
+  background: rgba(255, 176, 0, 0.18);
+  color: #7a5800;
+  font-size: 0.72rem;
+  font-weight: 900;
+  animation: floorSparklePulse 1.6s ease-in-out infinite;
+}
+
+.tabActive .tabRecommendation {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+@keyframes floorSparklePulse {
+  0%, 100% {
+    transform: scale(0.96);
+    filter: brightness(0.96);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.08);
+  }
 }
 
 .mapArea {
@@ -332,7 +366,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tab,
-  .occupancyClose {
+  .occupancyClose,
+  .tabRecommendation {
+    animation: none;
     transition: none;
   }
 

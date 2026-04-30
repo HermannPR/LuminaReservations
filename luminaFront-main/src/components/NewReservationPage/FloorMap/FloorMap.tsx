@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { SpaceAvailability, SpaceOccupancy } from '../../../types/reservation'
+import type { AiSpaceRecommendationMarker, SpaceAvailability, SpaceOccupancy } from '../../../types/reservation'
 import type { FloorSummary, SpaceWithLayout } from '../../../types/floor'
 import { fetchFloors, fetchFloorSpaces } from '../../../services/floorService'
 import { fetchFloorOccupancy } from '../../../services/reservationService'
@@ -18,6 +18,7 @@ interface FloorMapProps {
   isLoading: boolean
   hasSearched: boolean
   reservationDate: string
+  aiRecommendedSpaces?: Map<number, AiSpaceRecommendationMarker>
   onCategoriesLoaded?: (categories: string[]) => void
 }
 
@@ -33,6 +34,7 @@ export function FloorMap({
   isLoading,
   hasSearched,
   reservationDate,
+  aiRecommendedSpaces = new Map(),
   onCategoriesLoaded,
 }: FloorMapProps) {
   const navigate = useNavigate()
@@ -148,6 +150,24 @@ export function FloorMap({
     () => new Map<number, SpaceWithLayout>(spaces.map((space) => [space.id, space])),
     [spaces]
   )
+  const recommendationCountsByFloor = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const recommendation of aiRecommendedSpaces.values()) {
+      counts.set(recommendation.floor_id, (counts.get(recommendation.floor_id) ?? 0) + 1)
+    }
+    return counts
+  }, [aiRecommendedSpaces])
+
+  useEffect(() => {
+    if (floorId !== null || aiRecommendedSpaces.size === 0) return
+    if (activeFloorId !== null && recommendationCountsByFloor.has(activeFloorId)) return
+
+    const firstRecommendedFloorId = Array.from(aiRecommendedSpaces.values())[0]?.floor_id
+    if (typeof firstRecommendedFloorId === 'number') {
+      setActiveFloorId(firstRecommendedFloorId)
+    }
+  }, [activeFloorId, aiRecommendedSpaces, floorId, recommendationCountsByFloor])
+
   function handleClickSpace(spaceId: number) {
     const avail = availableMap.get(spaceId)
     if (avail) onSelectSpace(avail)
@@ -186,7 +206,12 @@ export function FloorMap({
                   }}
                   type="button"
                 >
-                  {floor.name}
+                  <span>{floor.name}</span>
+                  {recommendationCountsByFloor.has(floor.id) && (
+                    <span className={styles.tabRecommendation} aria-label={`${recommendationCountsByFloor.get(floor.id)} recomendaciones IA`}>
+                      ✨{recommendationCountsByFloor.get(floor.id)}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -214,6 +239,7 @@ export function FloorMap({
               selectedId={selectedSpaceId}
               hasSearched={hasSearched}
               occupancyBySpace={occupancyBySpace}
+              aiRecommendedSpaces={aiRecommendedSpaces}
               onClickSpace={handleClickSpace}
               onClickUnavailableSpace={handleClickUnavailableSpace}
             />

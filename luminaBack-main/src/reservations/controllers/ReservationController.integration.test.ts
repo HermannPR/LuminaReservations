@@ -158,6 +158,12 @@ describe("ReservationController integration", () => {
 
   it("returns AI recommendations for the authenticated user", async () => {
     vi.mocked(reservationService.getRecommendations).mockResolvedValue({
+      model: {
+        name: "Lumina Workspace AI",
+        version: "1.1.0",
+        confidence: 0.84,
+        factors: ["historial", "colaboracion", "ocupacion"],
+      },
       predicted_occupancy: 0.8,
       prediction_label: "alta",
       recommendations: [],

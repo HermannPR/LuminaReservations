@@ -79,6 +79,13 @@ describe("ReservationService", () => {
       findCurrentOccupants: vi.fn().mockResolvedValue([]),
       findFrequentNeighbors: vi.fn().mockResolvedValue(new Map()),
       findPredictedOccupancy: vi.fn().mockResolvedValue(0.25),
+      findUserPreferenceSignals: vi.fn().mockResolvedValue({
+        total_reservations: 0,
+        spaces: new Map(),
+        floors: new Map(),
+        categories: new Map(),
+      }),
+      findSpaceDemandScores: vi.fn().mockResolvedValue(new Map()),
     } as unknown as ReservationRepository
 
     parkingRepository = {
@@ -170,6 +177,13 @@ describe("ReservationService", () => {
     ])
     vi.mocked(reservationRepository.findFrequentNeighbors).mockResolvedValue(new Map([[11, 8]]))
     vi.mocked(reservationRepository.findPredictedOccupancy).mockResolvedValue(0.82)
+    vi.mocked(reservationRepository.findUserPreferenceSignals).mockResolvedValue({
+      total_reservations: 5,
+      spaces: new Map([[21, 2]]),
+      floors: new Map([[1, 5]]),
+      categories: new Map([["escritorio", 5]]),
+    })
+    vi.mocked(reservationRepository.findSpaceDemandScores).mockResolvedValue(new Map([[21, 0.2], [22, 0.8]]))
 
     const result = await service.getRecommendations({
       reservation_date: FUTURE_DATE,
@@ -180,10 +194,52 @@ describe("ReservationService", () => {
     }, 7)
 
     expect(result.prediction_label).toBe("alta")
+    expect(result.model.name).toBe("Lumina Workspace AI")
+    expect(result.model.factors).toContain("colaboradores frecuentes presentes en el horario")
     expect(result.recommendations[0]).toMatchObject({
       space: expect.objectContaining({ id: 21 }),
       nearby_user: teammate,
     })
+    expect(result.recommendations[0].confidence).toBeGreaterThan(0.5)
+    expect(result.recommendations[0].signals.some((signal) => signal.label === "Colaboración")).toBe(true)
     expect(result.recommendations[0].reasons.join(" ")).toContain("Ana Garcia")
+  })
+
+  it("spreads AI recommendations across floors when no floor filter is selected", async () => {
+    vi.mocked(spaceRepository.findAvailable).mockResolvedValue([
+      makeSpace({ id: 31, space_number: "PB-31", floor_id: 1, layout_cx: 0.11, layout_cy: 0.11 }),
+      makeSpace({ id: 32, space_number: "PB-32", floor_id: 1, layout_cx: 0.12, layout_cy: 0.12 }),
+      makeSpace({ id: 33, space_number: "PB-33", floor_id: 1, layout_cx: 0.13, layout_cy: 0.13 }),
+      makeSpace({ id: 34, space_number: "PB-34", floor_id: 1, layout_cx: 0.14, layout_cy: 0.14 }),
+      makeSpace({ id: 35, space_number: "PB-35", floor_id: 1, layout_cx: 0.15, layout_cy: 0.15 }),
+      makeSpace({ id: 36, space_number: "PB-36", floor_id: 1, layout_cx: 0.16, layout_cy: 0.16 }),
+      makeSpace({ id: 91, space_number: "P9-91", floor_id: 9, layout_cx: 0.42, layout_cy: 0.42 }),
+    ])
+    vi.mocked(reservationRepository.findPredictedOccupancy).mockResolvedValue(0.3)
+    vi.mocked(reservationRepository.findUserPreferenceSignals).mockResolvedValue({
+      total_reservations: 12,
+      spaces: new Map([[31, 4], [32, 4], [33, 3], [34, 3], [35, 2], [36, 2]]),
+      floors: new Map([[1, 12]]),
+      categories: new Map([["escritorio", 12]]),
+    })
+    vi.mocked(reservationRepository.findSpaceDemandScores).mockResolvedValue(new Map([
+      [31, 0.1],
+      [32, 0.1],
+      [33, 0.1],
+      [34, 0.1],
+      [35, 0.1],
+      [36, 0.1],
+      [91, 0.4],
+    ]))
+
+    const result = await service.getRecommendations({
+      reservation_date: FUTURE_DATE,
+      start_time: "09:00",
+      end_time: "10:00",
+      priority_category: "escritorio",
+    }, 7)
+
+    expect(result.recommendations).toHaveLength(6)
+    expect(result.recommendations.some((item) => item.space.floor_id === 9)).toBe(true)
   })
 })

@@ -1,12 +1,14 @@
-# Lumina WorkHub MTY
+# WorkHub MTY
 
-Sistema web para reservar espacios de oficina y estacionamiento en WorkHub MTY. La aplicación permite consultar disponibilidad por fecha, horario y zona, reservar escritorios o salas, solicitar estacionamiento como parte de una reserva de escritorio, hacer check-in, ver ocupación real en el mapa, administrar bloqueos de áreas y consultar accesos de estacionamiento para guardia.
+Sistema web para gestionar reservas de espacios de oficina y estacionamiento en WorkHub MTY. La aplicación permite consultar disponibilidad por fecha, horario, piso y zona; reservar escritorios o salas; solicitar estacionamiento como parte de una reserva de espacio; hacer check-in; visualizar ocupación real sobre planos; recibir recomendaciones inteligentes; administrar bloqueos operativos; y consultar accesos de estacionamiento desde una vista exclusiva para guardia.
+
+Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
 
 ## Contenido
 
 - `luminaBack-main`: API REST con Node.js, Express, TypeScript, PostgreSQL/Supabase y Vitest.
 - `luminaFront-main`: SPA con React, Vite, TypeScript, CSS Modules y Vitest Testing Library.
-- `README.md`: guía raíz del proyecto.
+- `README.md`: documentación raíz del proyecto.
 
 ## Funcionalidades Principales
 
@@ -16,18 +18,19 @@ Sistema web para reservar espacios de oficina y estacionamiento en WorkHub MTY. 
 - Mapa interactivo por piso con disponibilidad, ocupación y fotos de las personas que reservaron.
 - Modal de ocupación por espacio con horarios, estado y perfil del ocupante.
 - Perfil de usuario con foto cargada desde computadora o móvil.
-- Predicción inteligente de ocupación basada en historial.
-- Recomendaciones inteligentes de espacios cercanos a personas con las que el usuario suele coincidir.
-- Vista administrador con KPIs, gráficas simples y bloqueo de áreas completas.
-- Vista guardia para revisar estacionamientos reservados del día.
+- Predicción inteligente de ocupación basada en historial, demanda y distribución actual.
+- Recomendaciones inteligentes resaltadas directamente en el mapa con brillo visual y explicación breve al hacer hover.
+- Recomendaciones distribuidas entre pisos cuando el usuario no filtra un piso específico.
+- Vista administrador con KPIs, medidores, gráficas de demanda, distribución por estado, top usuarios y bloqueo de áreas completas.
+- Vista guardia exclusiva para revisar estacionamientos reservados del día.
 - Mensajes de error y confirmación con cierre automático y animación.
 - Diseño responsivo para desktop y móvil.
 
 ## Roles
 
 - `employee`: usuario estándar. Puede reservar espacios, solicitar estacionamiento con su reserva, hacer check-in y gestionar su perfil.
-- `admin` o `administrador`: acceso completo a KPIs, bloqueo de áreas y vista guardia.
-- `guard` o `guardia`: acceso a la vista de estacionamiento del día.
+- `admin` o `administrador`: acceso al dashboard operativo, KPIs y bloqueo/liberación de áreas.
+- `guard` o `guardia`: acceso exclusivo a la vista de estacionamientos reservados.
 
 La migración `migrate_hu17_remove_friends_parking_only_admin_ai.ts` crea el rol `guardia` si no existe.
 
@@ -51,6 +54,13 @@ PORT=3000
 NODE_ENV=development
 
 DATABASE_URL=postgresql://<usuario>:<password>@<host>:<puerto>/<db>
+
+# Opcionales
+ALLOWED_ORIGINS=http://localhost:5173
+TRUST_PROXY=1
+RESERVATION_TIMEZONE=America/Monterrey
+CHECK_IN_ALLOWED_CIDRS=10.0.0.0/8,192.168.0.0/16
+# CHECK_IN_WINDOW_OVERRIDE_MINUTES=30
 ```
 
 Crear `luminaFront-main/.env` solo si la API no corre en `http://localhost:3000`:
@@ -69,6 +79,17 @@ cd ../luminaFront-main
 npm install
 ```
 
+## Datos Demo
+
+Desde `luminaBack-main` existen scripts auxiliares para poblar datos de prueba:
+
+```bash
+npx ts-node seed_demo_users_and_reservations.ts
+node seed_guard_user.js
+```
+
+Úsalos solo contra una base de desarrollo o QA. No ejecutes seeds de prueba en producción sin revisar el contenido.
+
 ## Migraciones
 
 Ejecutar desde `luminaBack-main`.
@@ -84,6 +105,7 @@ Esta migración es destructiva por diseño porque aplica los cambios solicitados
 - Hace `reservations.space_id` obligatorio.
 - Crea `area_blocks`.
 - Crea el rol `guardia` si falta.
+- Mantiene estacionamiento como complemento de una reserva de espacio, no como reserva independiente.
 
 Recomendación: aplicarla primero en una base de prueba antes de producción.
 
@@ -142,6 +164,11 @@ Cobertura funcional incluida:
 - Perfil: lectura y actualización de foto.
 - Frontend services: disponibilidad, ocupación, recomendaciones, admin, guardia y perfil.
 - Integración UI: recomendación inteligente y reserva de escritorio con estacionamiento.
+
+Última validación local:
+
+- Backend: `npm test` con 14 pruebas y `npm run build`.
+- Frontend: `npm run lint`, `npm test` con 10 pruebas y `npm run build`.
 
 ## Arquitectura
 
@@ -202,33 +229,43 @@ Guardia:
 - Un usuario no puede tener estacionamientos traslapados.
 - Un espacio bloqueado por admin no aparece disponible ni puede reservarse.
 - El check-in respeta ventana de anticipación y red permitida si se configura.
+- Las reservas vencidas sin check-in se expiran automáticamente como `no_show`.
 
 ## Predicciones y Recomendaciones
 
-El motor inteligente usa datos existentes del sistema:
+El motor inteligente usa datos existentes del sistema y no requiere un proveedor externo. Es un modelo local, auditable y rápido diseñado para explicar sus decisiones en la interfaz sin bloquear el flujo manual de reserva.
+
+Señales usadas:
 
 - Ocupación histórica por día de semana, horario, piso y categoría.
 - Reservas actuales del mismo horario.
 - Usuarios con los que el usuario autenticado ha coincidido frecuentemente.
 - Coordenadas del layout para priorizar espacios cercanos.
+- Preferencias recientes del usuario por espacio, piso y categoría.
+- Presión histórica de demanda por asiento.
 
 La respuesta incluye:
 
 - `predicted_occupancy`: porcentaje estimado.
 - `prediction_label`: `baja`, `media` o `alta`.
-- `recommendations`: espacios ordenados por score, razones y persona cercana si aplica.
+- `model`: nombre, versión, confianza y factores usados.
+- `recommendations`: espacios ordenados por score, confianza, señales, explicación breve y persona cercana si aplica.
 
-No requiere proveedor externo de IA; es un motor local, auditable y rápido.
+En el frontend, las recomendaciones se muestran como brillo sobre el mapa. Si no hay filtro de piso, el backend reparte las recomendaciones entre pisos para evitar que todas queden concentradas en el primer piso. Al hacer hover sobre un espacio recomendado se muestra una razón corta, por ejemplo cercanía con una persona frecuente o afinidad con el historial del usuario.
 
 ## Vista Administrador
 
 La vista `/admin` muestra:
 
 - Reservas totales del día.
-- Reservas activas.
-- Reservas con estacionamiento.
+- Reservas confirmadas, activas, canceladas y no show.
+- Uso de estacionamiento.
 - Usuarios únicos.
 - Ocupación general.
+- Medidores visuales de ocupación y estacionamiento.
+- Distribución de reservas por estado.
+- Demanda por hora.
+- Usuarios con más actividad.
 - Ocupación por piso.
 - Ocupación por categoría.
 - Bloqueos activos.
@@ -245,6 +282,8 @@ La vista `/guardia` muestra reservas de estacionamiento por fecha:
 - Horario.
 - Código de reserva.
 - Espacio de oficina asociado.
+
+La ruta y el endpoint requieren rol `guard` o `guardia`; el usuario administrador no ve esta pestaña por defecto.
 
 ## Fotos de Perfil
 
@@ -278,7 +317,7 @@ Para validar una instalación:
 4. Iniciar sesión con un usuario activo.
 5. Probar `/nueva-reserva`.
 6. Probar `/admin` con usuario admin.
-7. Probar `/guardia` con usuario admin o guardia.
+7. Probar `/guardia` con usuario guardia.
 8. Correr pruebas y builds.
 
 ## Troubleshooting
@@ -294,5 +333,12 @@ Para validar una instalación:
 
 Comandos verificados durante el desarrollo:
 
-- `luminaBack-main`: `npm test`, `npm run build`
-- `luminaFront-main`: `npm test`, `npm run build`, `npm run lint`
+- `luminaBack-main`: `npm test`, `npm run build`.
+- `luminaFront-main`: `npm run lint`, `npm test`, `npm run build`.
+
+## Seguridad
+
+- No subas archivos `.env` ni tokens personales al repositorio.
+- Rota cualquier token que haya sido pegado en chats, terminales compartidas o logs.
+- Usa una base de datos separada para desarrollo, pruebas y producción.
+- Revisa las migraciones destructivas antes de ejecutarlas contra datos reales.

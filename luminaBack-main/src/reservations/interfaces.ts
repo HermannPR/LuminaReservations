@@ -79,18 +79,41 @@ export interface SpaceOccupancy {
   }>
 }
 
+export interface RecommendationSignal {
+  label: string
+  value: string
+  weight: number
+  strength: number
+}
+
 export interface IntelligentRecommendation {
   space: Space
   score: number
+  confidence: number
+  ai_summary: string
   reasons: string[]
+  signals: RecommendationSignal[]
   nearby_user: PublicUserProfile | null
   predicted_occupancy: number
 }
 
 export interface RecommendationResult {
+  model: {
+    name: string
+    version: string
+    confidence: number
+    factors: string[]
+  }
   predicted_occupancy: number
   prediction_label: "baja" | "media" | "alta"
   recommendations: IntelligentRecommendation[]
+}
+
+export interface UserPreferenceSignals {
+  total_reservations: number
+  spaces: Map<number, number>
+  floors: Map<number, number>
+  categories: Map<PriorityCategory, number>
 }
 
 export interface Reservation {
@@ -177,11 +200,31 @@ export interface AdminKpiOverview {
   date: string
   total_reservations: number
   active_reservations: number
+  confirmed_reservations: number
+  cancelled_reservations: number
+  no_show_reservations: number
   parking_reservations: number
+  parking_rate: number
   unique_users: number
   total_spaces: number
   occupied_spaces: number
   occupancy_rate: number
+  blocked_area_count: number
+  status_breakdown: Array<{
+    status: ReservationStatus
+    count: number
+  }>
+  hourly_distribution: Array<{
+    hour: string
+    reservations: number
+  }>
+  top_users: Array<{
+    user_id: number
+    first_name: string
+    last_name: string
+    email: string
+    reservations: number
+  }>
   by_floor: Array<{
     floor_id: number
     floor_name: string
