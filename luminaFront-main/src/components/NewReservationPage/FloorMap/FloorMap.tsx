@@ -19,6 +19,7 @@ interface FloorMapProps {
   hasSearched: boolean
   reservationDate: string
   aiRecommendedSpaces?: Map<number, AiSpaceRecommendationMarker>
+  refreshKey?: number
   onCategoriesLoaded?: (categories: string[]) => void
 }
 
@@ -35,6 +36,7 @@ export function FloorMap({
   hasSearched,
   reservationDate,
   aiRecommendedSpaces = new Map(),
+  refreshKey = 0,
   onCategoriesLoaded,
 }: FloorMapProps) {
   const navigate = useNavigate()
@@ -132,7 +134,7 @@ export function FloorMap({
     return () => {
       cancelled = true
     }
-  }, [navigate, reservationDate, resolvedFloorId])
+  }, [navigate, reservationDate, resolvedFloorId, refreshKey])
 
   // Memoized lookups — only recompute when availableSpaces reference changes
   const availableMap = useMemo(

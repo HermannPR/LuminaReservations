@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../Layout/AppShell'
 import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import { fetchGuardParking } from '../../services/reservationService'
 import { getSession } from '../../services/tokenStore'
+import { useReservationRealtime } from '../../hooks/useReservationRealtime'
 import type { ParkingReservationForGuard, PublicUserProfile } from '../../types/reservation'
 import styles from './GuardPage.module.css'
 
@@ -24,24 +25,34 @@ export function GuardPage(): JSX.Element {
 
   const token = getSession()?.access_token
 
-  useEffect(() => {
+  const loadParking = useCallback(async (showLoading = true) => {
     if (!token) {
       navigate('/login', { replace: true })
       return
     }
 
-    setLoading(true)
+    if (showLoading) setLoading(true)
     setError(null)
-    fetchGuardParking(token, date).then((result) => {
-      setLoading(false)
-      if (!result.success) {
-        if (result.unauthorized) navigate('/login', { replace: true })
-        else setError(result.error === 'FORBIDDEN' ? 'No tienes permisos para la vista de guardia.' : 'No se pudo cargar el estacionamiento.')
-        return
-      }
-      setItems(result.data)
-    })
+    const result = await fetchGuardParking(token, date)
+    if (showLoading) setLoading(false)
+    if (!result.success) {
+      if (result.unauthorized) navigate('/login', { replace: true })
+      else setError(result.error === 'FORBIDDEN' ? 'No tienes permisos para la vista de guardia.' : 'No se pudo cargar el estacionamiento.')
+      return
+    }
+    setItems(result.data)
   }, [date, navigate, token])
+
+  useEffect(() => {
+    void loadParking()
+  }, [loadParking])
+
+  useReservationRealtime((event) => {
+    if (event.type.startsWith('area_block.')) return
+    if (event.parking && (!event.reservation_date || event.reservation_date === date)) {
+      void loadParking(false)
+    }
+  }, Boolean(token))
 
   useEffect(() => {
     if (!error) return

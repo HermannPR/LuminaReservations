@@ -255,6 +255,7 @@ import type {
 import { getSession } from '../../services/tokenStore'
 import { fetchAvailability, createReservation, fetchRecommendations } from '../../services/reservationService'
 import { mapReservationError } from '../../utils/reservationValidator'
+import { useReservationRealtime } from '../../hooks/useReservationRealtime'
 import { FilterPanel } from './FilterPanel/FilterPanel'
 import { FloorMap } from './FloorMap/FloorMap'
 import { SelectedSpacePanel } from './SelectedSpacePanel/SelectedSpacePanel'
@@ -327,6 +328,7 @@ function getRecommendationReason(item: RecommendationResult['recommendations'][n
 
 export function NewReservationPage(): JSX.Element {
   const navigate = useNavigate()
+  const [mapRefreshKey, setMapRefreshKey] = useState(0)
 
   const [state, setState] = useState<ReservationFlowState>({
     filters: getDefaultFilters(),
@@ -516,6 +518,21 @@ export function NewReservationPage(): JSX.Element {
 
   // Keep ref in sync after each render so auto-search always calls the latest closure
   handleSearchRef.current = handleSearch
+
+  useReservationRealtime((event) => {
+    const filters = state.filters
+    const hasValidSearch = filters.reservation_date && filters.start_time && filters.end_time && filters.end_time > filters.start_time
+    const sameDate = !event.reservation_date || event.reservation_date === filters.reservation_date
+    const sameFloor = filters.floor_id === null || event.floor_id === undefined || event.floor_id === filters.floor_id
+
+    if (!sameDate || !sameFloor) return
+
+    setMapRefreshKey((value) => value + 1)
+    if (hasValidSearch) {
+      handleSearchRef.current?.()
+    }
+  })
+
   const aiRecommendedSpaces = useMemo(
     () => new Map<number, AiSpaceRecommendationMarker>(
       state.recommendations?.recommendations.map((item) => [
@@ -573,6 +590,7 @@ export function NewReservationPage(): JSX.Element {
                 hasSearched={state.hasSearched}
                 reservationDate={state.filters.reservation_date}
                 aiRecommendedSpaces={aiRecommendedSpaces}
+                refreshKey={mapRefreshKey}
                 onCategoriesLoaded={handleCategoriesLoaded}
               />
             </div>

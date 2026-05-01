@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCountUp } from '../../hooks/useCountUp'
 import { Link, useNavigate } from 'react-router-dom'
 import type { UserReservation } from '../../types/reservation'
@@ -6,6 +6,7 @@ import type { BadgeInfo, BadgeWithStatus, StreakInfo } from '../../types/gamific
 import { fetchMyReservations, checkInReservation, cancelReservation } from '../../services/reservationService'
 import { fetchMyStats } from '../../services/gamificationService'
 import { getSession } from '../../services/tokenStore'
+import { useReservationRealtime } from '../../hooks/useReservationRealtime'
 import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import AppShell from '../Layout/AppShell'
 import {
@@ -60,6 +61,33 @@ export function DashboardPage(): JSX.Element {
 
   const today = getTodayString()
 
+  const loadDashboardData = useCallback(async (showLoading = true) => {
+    const token = getSession()?.access_token
+    if (!token) { navigate('/login', { replace: true }); return }
+
+    if (showLoading) setLoading(true)
+    setError(null)
+
+    const [reservationsResult, statsResult] = await Promise.all([
+      fetchMyReservations(token),
+      fetchMyStats(token),
+    ])
+
+    if (showLoading) setLoading(false)
+
+    if (!reservationsResult.success) {
+      if (reservationsResult.unauthorized) { navigate('/login', { replace: true }); return }
+      setError('No se pudieron cargar las reservas.')
+      return
+    }
+    setAllReservations(reservationsResult.data)
+
+    if (statsResult.success) {
+      setStreak(statsResult.data.streak)
+      setEarnedBadges(statsResult.data.badges)
+    }
+  }, [navigate])
+
   const todayReservation = useMemo(() =>
     allReservations.find(
       (r) => getNormalizedDateString(r.reservation_date) === today &&
@@ -95,27 +123,14 @@ export function DashboardPage(): JSX.Element {
   )
 
   useEffect(() => {
-    const token = getSession()?.access_token
-    if (!token) { navigate('/login', { replace: true }); return }
+    void loadDashboardData()
+  }, [loadDashboardData])
 
-    Promise.all([
-      fetchMyReservations(token),
-      fetchMyStats(token),
-    ]).then(([reservationsResult, statsResult]) => {
-      setLoading(false)
-      if (!reservationsResult.success) {
-        if (reservationsResult.unauthorized) { navigate('/login', { replace: true }); return }
-        setError('No se pudieron cargar las reservas.')
-        return
-      }
-      setAllReservations(reservationsResult.data)
-
-      if (statsResult.success) {
-        setStreak(statsResult.data.streak)
-        setEarnedBadges(statsResult.data.badges)
-      }
-    })
-  }, [navigate])
+  useReservationRealtime((event) => {
+    if (!event.reservation_date || event.reservation_date >= today) {
+      void loadDashboardData(false)
+    }
+  })
 
   useEffect(() => {
     if (!todayReservation || todayReservation.status !== 'confirmada') return

@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clearSession, getSession } from '../../services/tokenStore'
+import { isAdminRole, isGuardRole } from '../../utils/roleRouting'
 import styles from './AppShell.module.css'
 import accGtDimensional from '../../assets/Acc_GT_Dimensional_RGB.png'
 
@@ -97,23 +98,16 @@ const guardNavItem = {
   ),
 }
 
-function isAdminRole(role: string): boolean {
-  return role === 'admin' || role === 'administrador'
-}
-
-function isGuardRole(role: string): boolean {
-  return role === 'guard' || role === 'guardia'
-}
-
 export default function AppShell({ title, subtitle, children, action, noscroll }: AppShellProps): JSX.Element {
   const location = useLocation()
   const navigate = useNavigate()
   const role = getSession()?.user.role.toLowerCase() ?? ''
-  const navItems = [
-    ...baseNavItems,
-    ...(isAdminRole(role) ? [adminNavItem] : []),
-    ...(isGuardRole(role) ? [guardNavItem] : []),
-  ]
+  const navItems = isGuardRole(role)
+    ? [guardNavItem]
+    : [
+        ...baseNavItems,
+        ...(isAdminRole(role) ? [adminNavItem] : []),
+      ]
 
   function handleLogout() {
     clearSession()

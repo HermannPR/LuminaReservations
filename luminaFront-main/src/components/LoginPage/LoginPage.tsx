@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isSessionValid, clearSession } from '../../services/tokenStore'
+import { isSessionValid, clearSession, getSession } from '../../services/tokenStore'
+import { getRoleHomePath } from '../../utils/roleRouting'
 import { LoginForm } from '../LoginForm/LoginForm'
 import styles from './LoginPage.module.css'
 import accGtDimensional from '../../assets/Acc_GT_Dimensional_RGB.png'
@@ -47,7 +48,7 @@ export function LoginPage(): JSX.Element {
 
   useEffect(() => {
     if (isSessionValid()) {
-      navigate('/dashboard', { replace: true })
+      navigate(getRoleHomePath(getSession()?.user.role), { replace: true })
     } else {
       clearSession()
     }

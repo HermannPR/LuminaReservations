@@ -4,6 +4,7 @@ import { validateLoginForm } from '../../utils/validator'
 import type { ValidationErrors } from '../../utils/validator'
 import * as authService from '../../services/authService'
 import { saveSession } from '../../services/tokenStore'
+import { getRoleHomePath } from '../../utils/roleRouting'
 import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import { ErrorBanner } from '../ErrorBanner/ErrorBanner'
 import styles from './LoginForm.module.css'
@@ -61,7 +62,7 @@ export function LoginForm(): JSX.Element {
 
       if (result.success) {
         saveSession(result.data)
-        navigate('/dashboard')
+        navigate(getRoleHomePath(result.data.user.role), { replace: true })
       } else {
         setServerError(result.errorMessage)
       }

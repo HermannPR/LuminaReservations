@@ -5,6 +5,7 @@ import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import { fetchFloors } from '../../services/floorService'
 import { blockArea, fetchAdminOverview, unblockArea } from '../../services/reservationService'
 import { getSession } from '../../services/tokenStore'
+import { useReservationRealtime } from '../../hooks/useReservationRealtime'
 import type { AdminKpiOverview, PriorityCategory } from '../../types/reservation'
 import type { FloorSummary } from '../../types/floor'
 import { PRIORITY_CATEGORY_LABELS } from '../../data/floorLayouts'
@@ -131,6 +132,13 @@ export function AdminPage(): JSX.Element {
     const result = await fetchAdminOverview(token, date)
     if (result.success) setOverview(result.data)
   }
+
+  useReservationRealtime((event) => {
+    const isAreaEvent = event.type.startsWith('area_block.')
+    if (isAreaEvent || !event.reservation_date || event.reservation_date === date) {
+      void refresh()
+    }
+  }, Boolean(token))
 
   async function handleBlockArea() {
     if (!token || typeof form.floor_id !== 'number') return

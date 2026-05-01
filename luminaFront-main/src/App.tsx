@@ -8,16 +8,30 @@ import { ProfilePage } from './components/ProfilePage/ProfilePage';
 import { AdminPage } from './components/AdminPage/AdminPage';
 import { GuardPage } from './components/GuardPage/GuardPage';
 import { getSession, isSessionValid } from './services/tokenStore';
+import { getRoleHomePath, isGuardRole, normalizeRole } from './utils/roleRouting';
 
 function ProtectedRoute({ children }: { children: JSX.Element }): JSX.Element {
-  return isSessionValid() ? children : <Navigate to="/login" replace />;
+  if (!isSessionValid()) return <Navigate to="/login" replace />;
+
+  const role = getSession()?.user.role;
+  if (isGuardRole(role)) return <Navigate to="/guardia" replace />;
+
+  return children;
 }
 
 function RoleRoute({ children, roles }: { children: JSX.Element; roles: string[] }): JSX.Element {
   const session = getSession();
-  const role = session?.user.role.toLowerCase();
   if (!isSessionValid()) return <Navigate to="/login" replace />;
-  return role && roles.includes(role) ? children : <Navigate to="/dashboard" replace />;
+
+  const role = normalizeRole(session?.user.role);
+  if (roles.includes(role)) return children;
+
+  return <Navigate to={getRoleHomePath(role)} replace />;
+}
+
+function DefaultRedirect(): JSX.Element {
+  if (!isSessionValid()) return <Navigate to="/login" replace />;
+  return <Navigate to={getRoleHomePath(getSession()?.user.role)} replace />;
 }
 
 export default function App(): JSX.Element {
@@ -32,7 +46,7 @@ export default function App(): JSX.Element {
         <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/admin" element={<RoleRoute roles={['admin', 'administrador']}><AdminPage /></RoleRoute>} />
         <Route path="/guardia" element={<RoleRoute roles={['guard', 'guardia']}><GuardPage /></RoleRoute>} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<DefaultRedirect />} />
       </Routes>
     </BrowserRouter>
   );

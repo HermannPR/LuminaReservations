@@ -7,6 +7,17 @@
   overflow: hidden;
 }
 
+@keyframes reservationSurfaceIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .filterSection {
   width: 100%;
   flex-shrink: 0;
@@ -18,6 +29,7 @@
   border-radius: 22px;
   box-shadow: 0 8px 24px rgba(70, 0, 115, 0.07);
   padding: 14px 18px;
+  animation: reservationSurfaceIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .mapRow {
@@ -66,6 +78,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: reservationSurfaceIn 320ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .aiMapCard {
@@ -167,5 +181,13 @@
   .emptyWrap {
     padding: 0.75rem 0.85rem;
     font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterCard,
+  .mapCard {
+    animation: none;
+    transition: none;
   }
 }

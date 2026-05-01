@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { ReservationStatus, UserReservation } from '../../types/reservation'
 import { cancelReservation, checkInReservation, fetchMyReservations } from '../../services/reservationService'
 import { getSession } from '../../services/tokenStore'
+import { useReservationRealtime } from '../../hooks/useReservationRealtime'
 import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import AppShell from '../Layout/AppShell'
 import {
@@ -41,6 +42,32 @@ export function MyReservationsPage(): JSX.Element {
 
   const currentStatus = STATUS_TABS[activeTab].value
 
+  const loadReservations = useCallback(async (showLoading = true) => {
+    const token = getSession()?.access_token
+    if (!token) {
+      navigate('/login', { replace: true })
+      return
+    }
+
+    if (showLoading) setLoading(true)
+    setError(null)
+
+    const result = await fetchMyReservations(token, currentStatus)
+    if (showLoading) setLoading(false)
+
+    if (!result.success) {
+      if ('unauthorized' in result && result.unauthorized) {
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setError('No se pudieron cargar las reservas.')
+      return
+    }
+
+    setReservations(result.data)
+  }, [currentStatus, navigate])
+
   useEffect(() => {
     if (activeTab !== 0) return
     const intervalId = window.setInterval(() => setNowMs(Date.now()), 1000)
@@ -60,31 +87,12 @@ export function MyReservationsPage(): JSX.Element {
   }, [successMessage])
 
   useEffect(() => {
-    const token = getSession()?.access_token
-    if (!token) {
-      navigate('/login', { replace: true })
-      return
-    }
+    void loadReservations()
+  }, [loadReservations])
 
-    setLoading(true)
-    setError(null)
-
-    fetchMyReservations(token, currentStatus).then((result) => {
-      setLoading(false)
-
-      if (!result.success) {
-        if ('unauthorized' in result && result.unauthorized) {
-          navigate('/login', { replace: true })
-          return
-        }
-
-        setError('No se pudieron cargar las reservas.')
-        return
-      }
-
-      setReservations(result.data)
-    })
-  }, [currentStatus, navigate])
+  useReservationRealtime(() => {
+    void loadReservations(false)
+  })
 
   async function handleCancel(id: number) {
     const token = getSession()?.access_token

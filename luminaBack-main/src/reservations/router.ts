@@ -13,6 +13,8 @@ import { ReservationController } from "./controllers/ReservationController"
 import { FloorController } from "./controllers/FloorController"
 import { AdminController } from "./controllers/AdminController"
 import { GuardController } from "./controllers/GuardController"
+import { RealtimeController } from "./controllers/RealtimeController"
+import { reservationEventHub } from "./realtime/ReservationEventHub"
 
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -39,13 +41,18 @@ const reservationController = new ReservationController(
   reservationService,
   reservationRepository,
   streakRepository,
-  badgeService
+  badgeService,
+  reservationEventHub
 )
 const floorController = new FloorController(floorRepository)
-const adminController = new AdminController(reservationRepository)
+const adminController = new AdminController(reservationRepository, reservationEventHub)
 const guardController = new GuardController(reservationRepository)
+const realtimeController = new RealtimeController(reservationEventHub)
 
 export const reservationsRouter = Router()
+
+// ── Realtime events ───────────────────────────────────────────────────────────
+reservationsRouter.get("/events", (req, res) => realtimeController.stream(req, res))
 
 // ── Reservation endpoints ──────────────────────────────────────────────────────
 reservationsRouter.get("/availability",  requireAuth, (req, res) => reservationController.getAvailability(req, res))

@@ -225,6 +225,25 @@ export interface ParkingReservationForGuard {
   floor_name: string
 }
 
+export type ReservationRealtimeEventType =
+  | 'reservation.created'
+  | 'reservation.cancelled'
+  | 'reservation.checked_in'
+  | 'area_block.created'
+  | 'area_block.deleted'
+
+export interface ReservationRealtimeEvent {
+  id: number
+  type: ReservationRealtimeEventType
+  timestamp: string
+  actor_user_id?: number
+  reservation_id?: number
+  reservation_date?: string
+  floor_id?: number
+  space_id?: number | null
+  parking?: boolean
+}
+
 // Respuesta de error genérica de la API
 export interface ApiErrorResponse {
   error: string;

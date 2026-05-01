@@ -23,8 +23,9 @@ Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
 - Recomendaciones distribuidas entre pisos cuando el usuario no filtra un piso específico.
 - Vista administrador con KPIs, medidores, gráficas de demanda, distribución por estado, top usuarios y bloqueo de áreas completas.
 - Vista guardia exclusiva para revisar estacionamientos reservados del día.
+- Monitoreo en tiempo real por Server-Sent Events para reflejar reservas, cancelaciones, check-ins y bloqueos sin refrescar la página.
 - Mensajes de error y confirmación con cierre automático y animación.
-- Diseño responsivo para desktop y móvil.
+- Diseño responsivo para desktop y móvil con transiciones y microanimaciones.
 
 ## Roles
 
@@ -33,6 +34,8 @@ Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
 - `guard` o `guardia`: acceso exclusivo a la vista de estacionamientos reservados.
 
 La migración `migrate_hu17_remove_friends_parking_only_admin_ai.ts` crea el rol `guardia` si no existe.
+
+El rol `guard`/`guardia` no tiene acceso a dashboard, nueva reserva, mis reservas, logros, perfil ni administración. Si intenta abrir otra ruta autenticada, el frontend lo redirige automáticamente a `/guardia`.
 
 ## Requisitos
 
@@ -163,12 +166,13 @@ Cobertura funcional incluida:
 - Admin/guardia: bloqueo de áreas y consulta de estacionamientos.
 - Perfil: lectura y actualización de foto.
 - Frontend services: disponibilidad, ocupación, recomendaciones, admin, guardia y perfil.
+- Restricción de rutas por rol para guardia.
 - Integración UI: recomendación inteligente y reserva de escritorio con estacionamiento.
 
 Última validación local:
 
 - Backend: `npm test` con 14 pruebas y `npm run build`.
-- Frontend: `npm run lint`, `npm test` con 10 pruebas y `npm run build`.
+- Frontend: `npm run lint`, `npm test` con 12 pruebas y `npm run build`.
 
 ## Arquitectura
 
@@ -200,6 +204,7 @@ Reservas:
 - `GET /reservations/availability`
 - `GET /reservations/occupancy`
 - `GET /reservations/recommendations`
+- `GET /reservations/events`
 - `POST /reservations`
 - `GET /reservations/my`
 - `POST /reservations/:id/check-in`
@@ -253,6 +258,26 @@ La respuesta incluye:
 
 En el frontend, las recomendaciones se muestran como brillo sobre el mapa. Si no hay filtro de piso, el backend reparte las recomendaciones entre pisos para evitar que todas queden concentradas en el primer piso. Al hacer hover sobre un espacio recomendado se muestra una razón corta, por ejemplo cercanía con una persona frecuente o afinidad con el historial del usuario.
 
+## Monitoreo en Tiempo Real
+
+La API expone `GET /reservations/events` como un canal SSE autenticado. El frontend mantiene una conexión `EventSource` mientras la sesión está activa y escucha eventos de:
+
+- `reservation.created`
+- `reservation.cancelled`
+- `reservation.checked_in`
+- `area_block.created`
+- `area_block.deleted`
+
+Cada evento incluye `id`, `type`, `timestamp` y, cuando aplica, fecha de reserva, espacio, piso, usuario actor y si afecta estacionamiento.
+
+Vistas que se resincronizan sin refrescar:
+
+- `/nueva-reserva`: disponibilidad, ocupación del mapa y recomendaciones.
+- `/dashboard`: reserva del día, próximas reservas, historial corto y métricas de logros.
+- `/mis-reservas`: lista activa o historial según la pestaña abierta.
+- `/admin`: KPIs, gráficas, ocupación y bloqueos.
+- `/guardia`: reservas de estacionamiento del día.
+
 ## Vista Administrador
 
 La vista `/admin` muestra:
@@ -285,6 +310,8 @@ La vista `/guardia` muestra reservas de estacionamiento por fecha:
 
 La ruta y el endpoint requieren rol `guard` o `guardia`; el usuario administrador no ve esta pestaña por defecto.
 
+Además, el usuario guardia solo ve la pestaña Guardia en la navegación.
+
 ## Fotos de Perfil
 
 Las fotos se guardan como data URL en `users.profile_photo_url`.
@@ -302,6 +329,7 @@ Mejoras incluidas:
 - Consultas independientes en paralelo con `Promise.all`.
 - Recomendaciones y disponibilidad consultadas en paralelo desde UI.
 - Agrupación de ocupación por espacio en backend para reducir trabajo del cliente.
+- Refresco selectivo por eventos realtime en lugar de recargar la aplicación completa.
 - Eliminación de llamadas sociales innecesarias.
 - Memos en mapa para lookups por espacio.
 - Asignación de estacionamiento transaccional con `FOR UPDATE SKIP LOCKED`.
@@ -333,8 +361,8 @@ Para validar una instalación:
 
 Comandos verificados durante el desarrollo:
 
-- `luminaBack-main`: `npm test`, `npm run build`.
-- `luminaFront-main`: `npm run lint`, `npm test`, `npm run build`.
+- `luminaBack-main`: `npm test` con 14 pruebas, `npm run build`.
+- `luminaFront-main`: `npm run lint`, `npm test` con 12 pruebas, `npm run build`.
 
 ## Seguridad
 

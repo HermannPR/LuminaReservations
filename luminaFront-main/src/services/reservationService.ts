@@ -4,6 +4,7 @@ import type {
   ReservationRequest,
   ReservationResponse,
   RecommendationResult,
+  ReservationRealtimeEvent,
   AdminKpiOverview,
   AreaBlock,
   ParkingReservationForGuard,
@@ -164,6 +165,29 @@ export async function fetchRecommendations(
   } catch {
     return { success: false, error: 'NETWORK_ERROR', unauthorized: false }
   }
+}
+
+export function subscribeReservationEvents(
+  token: string,
+  onEvent: (event: ReservationRealtimeEvent) => void,
+  onError?: () => void
+): () => void {
+  const url = new URL(`${API_BASE_URL}/reservations/events`)
+  url.searchParams.set('token', token)
+
+  const source = new EventSource(url.toString())
+  source.addEventListener('reservation', (message) => {
+    try {
+      onEvent(JSON.parse(message.data) as ReservationRealtimeEvent)
+    } catch {
+      // Ignore malformed realtime payloads; the next event will resync the UI.
+    }
+  })
+  source.onerror = () => {
+    onError?.()
+  }
+
+  return () => source.close()
 }
 
 export async function fetchAdminOverview(

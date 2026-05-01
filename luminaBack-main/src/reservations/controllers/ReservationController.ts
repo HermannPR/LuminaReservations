@@ -4,6 +4,7 @@ import { ReservationRepository } from "../repositories/ReservationRepository"
 import { StreakRepository } from "../repositories/StreakRepository"
 import { BadgeService } from "../services/BadgeService"
 import { ReservationError } from "../errors"
+import { ReservationEventHub } from "../realtime/ReservationEventHub"
 import type { PriorityCategory } from "../interfaces"
 import type { AuthRequest } from "../../shared/auth"
 
@@ -17,6 +18,7 @@ export class ReservationController {
     private readonly reservationRepository: ReservationRepository,
     private readonly streakRepository: StreakRepository,
     private readonly badgeService: BadgeService,
+    private readonly eventHub?: ReservationEventHub,
   ) {}
 
   async getAvailability(req: Request, res: Response): Promise<void> {
@@ -100,6 +102,14 @@ export class ReservationController {
     try {
       const userId = (req as AuthRequest).userId
       const result = await this.reservationService.createReservation(req.body, userId)
+      this.eventHub?.publish({
+        type: "reservation.created",
+        actor_user_id: userId,
+        reservation_id: result.reservation_id,
+        reservation_date: result.reservation_date,
+        space_id: result.space_id,
+        parking: result.parking_spot !== null || result.requiere_estacionamiento,
+      })
       res.status(201).json(result)
     } catch (err) {
       if (err instanceof ReservationError) {
@@ -159,6 +169,15 @@ export class ReservationController {
       const clientIp = typeof forwardedFor === "string" ? forwardedFor : req.ip
 
       const result = await this.reservationService.checkIn(reservationId, userId, clientIp)
+      const reservation = await this.reservationRepository.findById(reservationId)
+      this.eventHub?.publish({
+        type: "reservation.checked_in",
+        actor_user_id: userId,
+        reservation_id: reservationId,
+        reservation_date: this.normalizeDate(reservation?.reservation_date),
+        space_id: reservation?.space_id ?? null,
+        parking: reservation?.parking_spot_id !== null && reservation?.parking_spot_id !== undefined,
+      })
       res.status(200).json({ message: "Check-in realizado", ...result })
     } catch (err) {
       if (err instanceof ReservationError) {
@@ -180,7 +199,16 @@ export class ReservationController {
         return
       }
 
+      const reservation = await this.reservationRepository.findById(reservationId)
       await this.reservationService.cancelReservation(reservationId, userId)
+      this.eventHub?.publish({
+        type: "reservation.cancelled",
+        actor_user_id: userId,
+        reservation_id: reservationId,
+        reservation_date: this.normalizeDate(reservation?.reservation_date),
+        space_id: reservation?.space_id ?? null,
+        parking: reservation?.parking_spot_id !== null && reservation?.parking_spot_id !== undefined,
+      })
       res.status(200).json({ message: "Reservación cancelada" })
     } catch (err) {
       if (err instanceof ReservationError) {
@@ -223,5 +251,11 @@ export class ReservationController {
       console.error("getMyStats error:", err)
       res.status(500).json({ error: "INTERNAL_ERROR", message: "Error interno del servidor" })
     }
+  }
+
+  private normalizeDate(value: string | Date | undefined): string | undefined {
+    if (!value) return undefined
+    if (typeof value === "string") return value.slice(0, 10)
+    return value.toISOString().slice(0, 10)
   }
 }

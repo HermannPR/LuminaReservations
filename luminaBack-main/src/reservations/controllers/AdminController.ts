@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import { ReservationRepository } from "../repositories/ReservationRepository"
 import { ReservationError } from "../errors"
+import { ReservationEventHub } from "../realtime/ReservationEventHub"
 import type { PriorityCategory } from "../interfaces"
 
 const VALID_PRIORITY_CATEGORIES = new Set<PriorityCategory>([
@@ -8,7 +9,10 @@ const VALID_PRIORITY_CATEGORIES = new Set<PriorityCategory>([
 ])
 
 export class AdminController {
-  constructor(private readonly reservationRepository: ReservationRepository) {}
+  constructor(
+    private readonly reservationRepository: ReservationRepository,
+    private readonly eventHub?: ReservationEventHub
+  ) {}
 
   async getOverview(req: Request, res: Response): Promise<void> {
     try {
@@ -35,6 +39,10 @@ export class AdminController {
       }
 
       const block = await this.reservationRepository.blockArea(floorId, category as PriorityCategory, reason)
+      this.eventHub?.publish({
+        type: "area_block.created",
+        floor_id: block.floor_id,
+      })
       res.status(201).json(block)
     } catch (err) {
       this.handleError(err, res)
@@ -55,6 +63,9 @@ export class AdminController {
         return
       }
 
+      this.eventHub?.publish({
+        type: "area_block.deleted",
+      })
       res.json({ status: "unblocked" })
     } catch (err) {
       this.handleError(err, res)
