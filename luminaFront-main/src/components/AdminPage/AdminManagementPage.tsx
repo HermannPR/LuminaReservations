@@ -21,6 +21,10 @@ function blockErrorMessage(error: string): string {
   return 'No se pudo bloquear el espacio.'
 }
 
+function overlapsRange(startA: string, endA: string, startB: string, endB: string): boolean {
+  return startA < endB && endA > startB
+}
+
 export function AdminManagementPage(): JSX.Element {
   const navigate = useNavigate()
   const token = getSession()?.access_token
@@ -42,6 +46,17 @@ export function AdminManagementPage(): JSX.Element {
     : 'Sin categoría'
 
   const dateBlocks = useMemo(() => overview?.blocked_spaces ?? [], [overview])
+  const floorNameById = useMemo(() => new Map(
+    (overview?.by_floor ?? []).map((floor) => [floor.floor_id, floor.floor_name])
+  ), [overview])
+  const selectedFloorName = selectedSpace
+    ? floorNameById.get(selectedSpace.floor_id) ?? `Piso ${selectedSpace.floor_id}`
+    : null
+  const blockedSpaceIdsForRange = useMemo(() => new Set(
+    dateBlocks
+      .filter((block) => overlapsRange(block.start_time, block.end_time, startTime, endTime))
+      .map((block) => block.space_id)
+  ), [dateBlocks, endTime, startTime])
 
   async function refresh() {
     if (!token) return
@@ -167,6 +182,7 @@ export function AdminManagementPage(): JSX.Element {
             refreshKey={refreshKey}
             mode="management"
             onSelectLayoutSpace={setSelectedSpace}
+            managementUnavailableSpaceIds={blockedSpaceIdsForRange}
           />
         </section>
 
@@ -180,7 +196,7 @@ export function AdminManagementPage(): JSX.Element {
             {selectedSpace ? (
               <div className={styles.selectedMeta}>
                 <span>{selectedCategory}</span>
-                <span>Piso ID {selectedSpace.floor_id}</span>
+                <span>{selectedFloorName}</span>
               </div>
             ) : (
               <p className={styles.hint}>Selecciona un escritorio o sala directamente en el mapa.</p>

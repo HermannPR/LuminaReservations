@@ -10,6 +10,8 @@ import { FloorPlanViewer } from './FloorPlanViewer'
 import { SpaceLegend } from './SpaceLegend'
 import styles from './FloorMap.module.css'
 
+const EMPTY_ID_SET = new Set<number>()
+
 interface FloorMapProps {
   floorId: number | null
   availableSpaces: SpaceAvailability[]
@@ -24,6 +26,7 @@ interface FloorMapProps {
   onVisibleFloorChange?: (floorId: number) => void
   mode?: 'reservation' | 'management'
   onSelectLayoutSpace?: (space: SpaceWithLayout) => void
+  managementUnavailableSpaceIds?: Set<number>
 }
 
 function initials(firstName: string, lastName: string): string {
@@ -44,6 +47,7 @@ export function FloorMap({
   onVisibleFloorChange,
   mode = 'reservation',
   onSelectLayoutSpace,
+  managementUnavailableSpaceIds = EMPTY_ID_SET,
 }: FloorMapProps) {
   const navigate = useNavigate()
   const [floors, setFloors] = useState<FloorSummary[]>([])
@@ -182,8 +186,14 @@ export function FloorMap({
     [spaces]
   )
   const managementAvailableIds = useMemo(
-    () => new Set(spaces.filter((space) => !space.visual_only).map((space) => space.id)),
-    [spaces]
+    () => new Set(
+      spaces
+        .filter((space) => !space.visual_only)
+        .filter((space) => !managementUnavailableSpaceIds.has(space.id))
+        .filter((space) => !occupancyBySpace.has(space.id))
+        .map((space) => space.id)
+    ),
+    [managementUnavailableSpaceIds, occupancyBySpace, spaces]
   )
   const recommendationCountsByFloor = useMemo(() => {
     const counts = new Map<number, number>()

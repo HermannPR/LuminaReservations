@@ -215,7 +215,6 @@ export interface BadgeInfo {
   key: string
   name: string
   description: string
-  tier: number
   earned_percentage?: number
 }
 

@@ -5,7 +5,6 @@ export interface BadgeInfo {
   key: string
   name: string
   description: string
-  tier: number
   earned_percentage: number
 }
 
@@ -26,10 +25,9 @@ export class BadgeRepository {
               b.key,
               b.name,
               b.description,
-              b.tier,
               0::float AS earned_percentage
        FROM badges b
-       ORDER BY b.tier, b.id`
+       ORDER BY b.id`
     )
     return result.rows
   }
@@ -47,14 +45,14 @@ export class BadgeRepository {
          FROM user_badges
          GROUP BY badge_id
        )
-       SELECT b.id, b.key, b.name, b.description, b.tier,
+       SELECT b.id, b.key, b.name, b.description,
               COALESCE(ROUND(((ec.earned / NULLIF(au.total, 0)) * 100)::numeric, 1), 0)::float AS earned_percentage,
               ub.earned_at::text AS earned_at
        FROM badges b
        CROSS JOIN active_users au
        LEFT JOIN earned_counts ec ON ec.badge_id = b.id
        LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1
-       ORDER BY b.tier, b.id`,
+       ORDER BY b.id`,
       [userId]
     )
     return result.rows
@@ -62,7 +60,7 @@ export class BadgeRepository {
 
   async findEarned(userId: number): Promise<EarnedBadge[]> {
     const result = await this.db.query<EarnedBadge>(
-      `SELECT b.id, b.key, b.name, b.description, b.tier, ub.earned_at::text AS earned_at
+      `SELECT b.id, b.key, b.name, b.description, ub.earned_at::text AS earned_at
        FROM user_badges ub
        JOIN badges b ON b.id = ub.badge_id
        WHERE ub.user_id = $1
