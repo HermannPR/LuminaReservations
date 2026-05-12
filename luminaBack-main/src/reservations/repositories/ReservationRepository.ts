@@ -7,9 +7,11 @@ import {
   PriorityCategory,
   PublicUserProfile,
   Reservation,
+  ReservationEventDetails,
   NewReservationRecord,
   ReservationResult,
   ReservationStatus,
+  SpaceBlock,
   SpaceOccupancy,
   UserPreferenceSignals,
   UserReservation,
@@ -94,6 +96,31 @@ export class ReservationRepository {
     }
   }
 
+  async hasOverlappingBlockForSpace(
+    spaceId: number,
+    date: string,
+    startTime: string,
+    endTime: string
+  ): Promise<boolean> {
+    try {
+      const result = await this.db.query<{ id: number }>(
+        `SELECT id
+         FROM space_blocks
+         WHERE space_id = $1
+           AND block_date = $2
+           AND is_active = true
+           AND start_time < $4
+           AND end_time > $3
+         LIMIT 1`,
+        [spaceId, date, startTime, endTime]
+      )
+      return result.rows.length > 0
+    } catch (err) {
+      if (err instanceof ReservationError) throw err
+      throw new ReservationError(500, "DATABASE_ERROR", "Error de base de datos")
+    }
+  }
+
   async findByCode(code: string): Promise<Reservation | null> {
     try {
       const result = await this.db.query<Reservation>(
@@ -166,6 +193,26 @@ export class ReservationRepository {
     try {
       const result = await this.db.query<Reservation>(
         "SELECT * FROM reservations WHERE id = $1",
+        [id]
+      )
+      return result.rows[0] ?? null
+    } catch (err) {
+      if (err instanceof ReservationError) throw err
+      throw new ReservationError(500, "DATABASE_ERROR", "Error de base de datos")
+    }
+  }
+
+  async findEventDetails(id: number): Promise<ReservationEventDetails | null> {
+    try {
+      const result = await this.db.query<ReservationEventDetails>(
+        `SELECT r.id AS reservation_id,
+                r.reservation_date::text AS reservation_date,
+                r.space_id,
+                s.floor_id,
+                (r.parking_spot_id IS NOT NULL OR r.requiere_estacionamiento = true) AS parking
+         FROM reservations r
+         LEFT JOIN spaces s ON s.id = r.space_id
+         WHERE r.id = $1`,
         [id]
       )
       return result.rows[0] ?? null
@@ -557,7 +604,7 @@ export class ReservationRepository {
   }
 
   async getAdminOverview(date: string): Promise<AdminKpiOverview> {
-    const [totals, byFloor, byCategory, blocks, statusBreakdown, hourlyDistribution, topUsers] = await Promise.all([
+    const [totals, byFloor, byCategory, areaBlocks, spaceBlocks, statusBreakdown, hourlyDistribution, topUsers] = await Promise.all([
       this.db.query<{
         total_reservations: string
         active_reservations: string
@@ -637,6 +684,7 @@ export class ReservationRepository {
         [date]
       ),
       this.findAreaBlocks(),
+      this.findSpaceBlocks(date),
       this.db.query<{ status: ReservationStatus; count: string }>(
         `SELECT status, COUNT(*)::text AS count
          FROM reservations
@@ -710,7 +758,8 @@ export class ReservationRepository {
       total_spaces: totalSpaces,
       occupied_spaces: occupiedSpaces,
       occupancy_rate: totalSpaces > 0 ? occupiedSpaces / totalSpaces : 0,
-      blocked_area_count: blocks.length,
+      blocked_area_count: areaBlocks.length,
+      blocked_space_count: spaceBlocks.length,
       status_breakdown: statusBreakdown.rows.map((row) => ({
         status: row.status,
         count: Number(row.count),
@@ -747,7 +796,8 @@ export class ReservationRepository {
           occupancy_rate: categoryTotal > 0 ? categoryOccupied / categoryTotal : 0,
         }
       }),
-      blocked_areas: blocks,
+      blocked_areas: areaBlocks,
+      blocked_spaces: spaceBlocks,
     }
   }
 
@@ -789,6 +839,124 @@ export class ReservationRepository {
   async unblockArea(blockId: number): Promise<boolean> {
     const result = await this.db.query<{ id: number }>(
       `UPDATE area_blocks
+       SET is_active = false, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [blockId]
+    )
+    return result.rows.length > 0
+  }
+
+  async findSpaceBlocks(date?: string): Promise<SpaceBlock[]> {
+    const result = await this.db.query<SpaceBlock>(
+      `SELECT sb.id,
+              sb.space_id,
+              s.space_number,
+              s.floor_id,
+              f.name AS floor_name,
+              sb.block_date::text AS block_date,
+              sb.start_time::text AS start_time,
+              sb.end_time::text AS end_time,
+              sb.reason,
+              sb.is_active,
+              sb.created_at
+       FROM space_blocks sb
+       JOIN spaces s ON s.id = sb.space_id
+       JOIN floors f ON f.id = s.floor_id
+       WHERE sb.is_active = true
+         AND ($1::date IS NULL OR sb.block_date = $1::date)
+       ORDER BY sb.block_date, sb.start_time, f.floor_number, s.space_number`,
+      [date ?? null]
+    )
+
+    return result.rows.map((row) => ({
+      ...row,
+      start_time: row.start_time.slice(0, 5),
+      end_time: row.end_time.slice(0, 5),
+    }))
+  }
+
+  async blockSpace(
+    spaceId: number,
+    blockDate: string,
+    startTime: string,
+    endTime: string,
+    reason: string | null
+  ): Promise<SpaceBlock> {
+    const spaceExists = await this.db.query<{ id: number }>(
+      "SELECT id FROM spaces WHERE id = $1 AND is_active = true AND COALESCE(visual_only, false) = false LIMIT 1",
+      [spaceId]
+    )
+    if (spaceExists.rows.length === 0) {
+      throw new ReservationError(404, "SPACE_NOT_FOUND", "El espacio no existe o no está disponible")
+    }
+
+    const reservationConflict = await this.db.query<{ id: number }>(
+      `SELECT id
+       FROM reservations
+       WHERE space_id = $1
+         AND reservation_date = $2
+         AND status IN ('confirmada', 'activa')
+         AND start_time < $4
+         AND end_time > $3
+       LIMIT 1`,
+      [spaceId, blockDate, startTime, endTime]
+    )
+
+    if (reservationConflict.rows.length > 0) {
+      throw new ReservationError(409, "SPACE_UNAVAILABLE", "El espacio ya tiene una reserva en ese horario")
+    }
+
+    const existingBlock = await this.db.query<{ id: number }>(
+      `SELECT id
+       FROM space_blocks
+       WHERE space_id = $1
+         AND block_date = $2
+         AND is_active = true
+         AND start_time < $4
+         AND end_time > $3
+       LIMIT 1`,
+      [spaceId, blockDate, startTime, endTime]
+    )
+
+    if (existingBlock.rows.length > 0) {
+      throw new ReservationError(409, "SPACE_UNAVAILABLE", "El espacio ya está bloqueado en ese horario")
+    }
+
+    const result = await this.db.query<SpaceBlock>(
+      `WITH inserted AS (
+         INSERT INTO space_blocks (space_id, block_date, start_time, end_time, reason, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
+         RETURNING *
+       )
+       SELECT inserted.id,
+              inserted.space_id,
+              s.space_number,
+              s.floor_id,
+              f.name AS floor_name,
+              inserted.block_date::text AS block_date,
+              inserted.start_time::text AS start_time,
+              inserted.end_time::text AS end_time,
+              inserted.reason,
+              inserted.is_active,
+              inserted.created_at
+       FROM inserted
+       JOIN spaces s ON s.id = inserted.space_id
+       JOIN floors f ON f.id = s.floor_id`,
+      [spaceId, blockDate, startTime, endTime, reason]
+    )
+
+    const row = result.rows[0]
+    return {
+      ...row,
+      start_time: row.start_time.slice(0, 5),
+      end_time: row.end_time.slice(0, 5),
+    }
+  }
+
+  async unblockSpace(blockId: number): Promise<boolean> {
+    const result = await this.db.query<{ id: number }>(
+      `UPDATE space_blocks
        SET is_active = false, updated_at = NOW()
        WHERE id = $1
        RETURNING id`,

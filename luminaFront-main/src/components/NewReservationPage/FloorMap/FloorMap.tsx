@@ -21,6 +21,9 @@ interface FloorMapProps {
   aiRecommendedSpaces?: Map<number, AiSpaceRecommendationMarker>
   refreshKey?: number
   onCategoriesLoaded?: (categories: string[]) => void
+  onVisibleFloorChange?: (floorId: number) => void
+  mode?: 'reservation' | 'management'
+  onSelectLayoutSpace?: (space: SpaceWithLayout) => void
 }
 
 function initials(firstName: string, lastName: string): string {
@@ -38,6 +41,9 @@ export function FloorMap({
   aiRecommendedSpaces = new Map(),
   refreshKey = 0,
   onCategoriesLoaded,
+  onVisibleFloorChange,
+  mode = 'reservation',
+  onSelectLayoutSpace,
 }: FloorMapProps) {
   const navigate = useNavigate()
   const [floors, setFloors] = useState<FloorSummary[]>([])
@@ -48,6 +54,10 @@ export function FloorMap({
   const [occupancy, setOccupancy] = useState<SpaceOccupancy[]>([])
   const [selectedOccupiedSpaceId, setSelectedOccupiedSpaceId] = useState<number | null>(null)
   const didFetchFloors = useRef(false)
+  const spacesRequestIdRef = useRef(0)
+  const lastVisibleFloorIdRef = useRef<number | null>(null)
+  const userSelectedFloorRef = useRef(false)
+  const lastAutoRecommendationSignatureRef = useRef("")
   // Ref keeps latest callback without being a fetchSpaces dep (avoids infinite loop)
   const onCategoriesLoadedRef = useRef(onCategoriesLoaded)
   useEffect(() => { onCategoriesLoadedRef.current = onCategoriesLoaded })
@@ -79,15 +89,34 @@ export function FloorMap({
 
   // When floorId prop changes (filter updated), sync active tab
   useEffect(() => {
-    if (floorId !== null) setActiveFloorId(floorId)
+    if (floorId !== null) {
+      userSelectedFloorRef.current = false
+      setActiveFloorId(floorId)
+    }
   }, [floorId])
+
+  useEffect(() => {
+    if (resolvedFloorId === null || lastVisibleFloorIdRef.current === resolvedFloorId) return
+    lastVisibleFloorIdRef.current = resolvedFloorId
+    onVisibleFloorChange?.(resolvedFloorId)
+  }, [onVisibleFloorChange, resolvedFloorId])
 
   // Fetch spaces when resolved floor changes
   const fetchSpaces = useCallback(async (fid: number) => {
     const token = getSession()?.access_token
     if (!token) { navigate('/login', { replace: true }); return }
+
+    const requestId = spacesRequestIdRef.current + 1
+    spacesRequestIdRef.current = requestId
+
     setLoadingSpaces(true)
+    setSpaces([])
+    setOccupancy([])
+    setSelectedOccupiedSpaceId(null)
+
     const result = await fetchFloorSpaces(fid, token)
+    if (requestId !== spacesRequestIdRef.current) return
+
     setLoadingSpaces(false)
     if (!result.success) {
       if (result.unauthorized) navigate('/login', { replace: true })
@@ -152,6 +181,10 @@ export function FloorMap({
     () => new Map<number, SpaceWithLayout>(spaces.map((space) => [space.id, space])),
     [spaces]
   )
+  const managementAvailableIds = useMemo(
+    () => new Set(spaces.filter((space) => !space.visual_only).map((space) => space.id)),
+    [spaces]
+  )
   const recommendationCountsByFloor = useMemo(() => {
     const counts = new Map<number, number>()
     for (const recommendation of aiRecommendedSpaces.values()) {
@@ -159,23 +192,47 @@ export function FloorMap({
     }
     return counts
   }, [aiRecommendedSpaces])
+  const recommendationSignature = useMemo(
+    () => Array.from(aiRecommendedSpaces.entries())
+      .map(([spaceId, recommendation]) => `${spaceId}:${recommendation.floor_id}:${recommendation.score}`)
+      .sort()
+      .join("|"),
+    [aiRecommendedSpaces]
+  )
 
   useEffect(() => {
     if (floorId !== null || aiRecommendedSpaces.size === 0) return
+    if (lastAutoRecommendationSignatureRef.current === recommendationSignature) return
+
+    lastAutoRecommendationSignatureRef.current = recommendationSignature
+    if (userSelectedFloorRef.current) return
     if (activeFloorId !== null && recommendationCountsByFloor.has(activeFloorId)) return
 
     const firstRecommendedFloorId = Array.from(aiRecommendedSpaces.values())[0]?.floor_id
     if (typeof firstRecommendedFloorId === 'number') {
       setActiveFloorId(firstRecommendedFloorId)
+      setSelectedOccupiedSpaceId(null)
     }
-  }, [activeFloorId, aiRecommendedSpaces, floorId, recommendationCountsByFloor])
+  }, [activeFloorId, aiRecommendedSpaces, floorId, recommendationCountsByFloor, recommendationSignature])
 
   function handleClickSpace(spaceId: number) {
+    if (mode === 'management') {
+      const space = spacesById.get(spaceId)
+      if (space) onSelectLayoutSpace?.(space)
+      return
+    }
+
     const avail = availableMap.get(spaceId)
     if (avail) onSelectSpace(avail)
   }
 
   function handleClickUnavailableSpace(spaceId: number) {
+    if (mode === 'management') {
+      const space = spacesById.get(spaceId)
+      if (space) onSelectLayoutSpace?.(space)
+      return
+    }
+
     setSelectedOccupiedSpaceId(spaceId)
   }
 
@@ -203,6 +260,7 @@ export function FloorMap({
                   aria-selected={activeFloorId === floor.id}
                   className={`${styles.tab} ${activeFloorId === floor.id ? styles.tabActive : ''}`}
                   onClick={() => {
+                    userSelectedFloorRef.current = true
                     setActiveFloorId(floor.id)
                     setSelectedOccupiedSpaceId(null)
                   }}
@@ -235,9 +293,11 @@ export function FloorMap({
         {!isBusy && imageUrl && spaces.length > 0 && (
           <div className={styles.mapWrap}>
             <FloorPlanViewer
+              key={`${resolvedFloorId ?? 'floor'}-${imageUrl}`}
               imageUrl={imageUrl}
+              floorName={activeFloor?.name ?? 'Piso'}
               spaces={spaces}
-              availableIds={availableIds}
+              availableIds={mode === 'management' ? managementAvailableIds : availableIds}
               selectedId={selectedSpaceId}
               hasSearched={hasSearched}
               occupancyBySpace={occupancyBySpace}

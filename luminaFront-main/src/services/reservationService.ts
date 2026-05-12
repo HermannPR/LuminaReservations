@@ -4,9 +4,11 @@ import type {
   ReservationRequest,
   ReservationResponse,
   RecommendationResult,
+  AssistantResponse,
   ReservationRealtimeEvent,
   AdminKpiOverview,
   AreaBlock,
+  SpaceBlock,
   ParkingReservationForGuard,
   SpaceOccupancy,
   UserReservation,
@@ -170,12 +172,16 @@ export async function fetchRecommendations(
 export function subscribeReservationEvents(
   token: string,
   onEvent: (event: ReservationRealtimeEvent) => void,
-  onError?: () => void
+  onError?: () => void,
+  onOpen?: () => void
 ): () => void {
   const url = new URL(`${API_BASE_URL}/reservations/events`)
   url.searchParams.set('token', token)
 
   const source = new EventSource(url.toString())
+  source.onopen = () => {
+    onOpen?.()
+  }
   source.addEventListener('reservation', (message) => {
     try {
       onEvent(JSON.parse(message.data) as ReservationRealtimeEvent)
@@ -188,6 +194,30 @@ export function subscribeReservationEvents(
   }
 
   return () => source.close()
+}
+
+export async function askReservationAssistant(
+  token: string,
+  message: string
+): Promise<ServiceResult<AssistantResponse>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reservations/assistant`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message }),
+    })
+    if (isInvalidSessionResponse(response)) return unauthorizedResult()
+    if (!response.ok) {
+      const body: ApiErrorResponse = await response.json()
+      return { success: false, error: body.error, unauthorized: false }
+    }
+    return { success: true, data: await response.json() }
+  } catch {
+    return { success: false, error: 'NETWORK_ERROR', unauthorized: false }
+  }
 }
 
 export async function fetchAdminOverview(
@@ -240,6 +270,56 @@ export async function unblockArea(
 ): Promise<ServiceResult<{ status: string }>> {
   try {
     const response = await fetch(`${API_BASE_URL}/reservations/admin/area-blocks/${blockId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (isInvalidSessionResponse(response)) return unauthorizedResult()
+    if (!response.ok) {
+      const body: ApiErrorResponse = await response.json()
+      return { success: false, error: body.error, unauthorized: false }
+    }
+    return { success: true, data: await response.json() }
+  } catch {
+    return { success: false, error: 'NETWORK_ERROR', unauthorized: false }
+  }
+}
+
+export async function blockSpace(
+  token: string,
+  payload: {
+    space_id: number
+    block_date: string
+    start_time: string
+    end_time: string
+    reason: string
+  }
+): Promise<ServiceResult<SpaceBlock>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reservations/admin/space-blocks`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    if (isInvalidSessionResponse(response)) return unauthorizedResult()
+    if (!response.ok) {
+      const body: ApiErrorResponse = await response.json()
+      return { success: false, error: body.error, unauthorized: false }
+    }
+    return { success: true, data: await response.json() }
+  } catch {
+    return { success: false, error: 'NETWORK_ERROR', unauthorized: false }
+  }
+}
+
+export async function unblockSpace(
+  token: string,
+  blockId: number
+): Promise<ServiceResult<{ status: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reservations/admin/space-blocks/${blockId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })

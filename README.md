@@ -16,12 +16,14 @@ Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
 - Reservas de espacios por fecha, horario, piso y categoría.
 - Estacionamiento ligado obligatoriamente a una reserva de escritorio o sala.
 - Mapa interactivo por piso con disponibilidad, ocupación y fotos de las personas que reservaron.
+- Popup contextual al hacer hover sobre un espacio con nombre, piso, ocupante, foto y horario ocupado.
 - Modal de ocupación por espacio con horarios, estado y perfil del ocupante.
 - Perfil de usuario con foto cargada desde computadora o móvil.
-- Predicción inteligente de ocupación basada en historial, demanda y distribución actual.
-- Recomendaciones inteligentes resaltadas directamente en el mapa con brillo visual y explicación breve al hacer hover.
+- Predicción inteligente de ocupación con proveedor de IA configurable: Gemini API u OpenAI.
+- Recomendaciones con IA resaltadas directamente en el mapa con brillo visual y explicación breve al hacer hover.
+- Chatbot con IA para recomendaciones, estado de reservas e insights operativos.
 - Recomendaciones distribuidas entre pisos cuando el usuario no filtra un piso específico.
-- Vista administrador con KPIs, medidores, gráficas de demanda, distribución por estado, top usuarios y bloqueo de áreas completas.
+- Vista administrador separada en Dashboard de KPIs y Gestión de bloqueos por espacio/sala con mapa, fecha y horario.
 - Vista guardia exclusiva para revisar estacionamientos reservados del día.
 - Monitoreo en tiempo real por Server-Sent Events para reflejar reservas, cancelaciones, check-ins y bloqueos sin refrescar la página.
 - Mensajes de error y confirmación con cierre automático y animación.
@@ -30,10 +32,10 @@ Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
 ## Roles
 
 - `employee`: usuario estándar. Puede reservar espacios, solicitar estacionamiento con su reserva, hacer check-in y gestionar su perfil.
-- `admin` o `administrador`: acceso al dashboard operativo, KPIs y bloqueo/liberación de áreas.
+- `admin` o `administrador`: acceso únicamente a Dashboard y Gestión. Puede revisar KPIs y bloquear/liberar espacios o salas por fecha y horario.
 - `guard` o `guardia`: acceso exclusivo a la vista de estacionamientos reservados.
 
-La migración `migrate_hu17_remove_friends_parking_only_admin_ai.ts` crea el rol `guardia` si no existe.
+La migración `migrate_hu17_remove_friends_parking_only_admin_ai.ts` crea el rol `guardia` si no existe. La migración `migrate_hu19_space_blocks_and_spaces.ts` crea los bloqueos por espacio y verifica que los espacios esperados estén cargados.
 
 El rol `guard`/`guardia` no tiene acceso a dashboard, nueva reserva, mis reservas, logros, perfil ni administración. Si intenta abrir otra ruta autenticada, el frontend lo redirige automáticamente a `/guardia`.
 
@@ -64,6 +66,19 @@ TRUST_PROXY=1
 RESERVATION_TIMEZONE=America/Monterrey
 CHECK_IN_ALLOWED_CIDRS=10.0.0.0/8,192.168.0.0/16
 # CHECK_IN_WINDOW_OVERRIDE_MINUTES=30
+
+# IA real para recomendaciones y chatbot
+AI_PROVIDER=gemini
+GEMINI_API_KEY=<gemini-api-key>
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_FALLBACK_MODELS=gemini-2.5-flash,gemini-2.0-flash-lite
+# GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+
+# Alternativa OpenAI
+# AI_PROVIDER=openai
+# OPENAI_API_KEY=<openai-api-key>
+OPENAI_MODEL=gpt-4.1-mini
+# OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 Crear `luminaFront-main/.env` solo si la API no corre en `http://localhost:3000`:
@@ -99,6 +114,8 @@ Ejecutar desde `luminaBack-main`.
 
 ```bash
 npx ts-node migrate_hu17_remove_friends_parking_only_admin_ai.ts
+npx ts-node migrate_hu18_realtime_ai_indexes.ts
+npx ts-node migrate_hu19_space_blocks_and_spaces.ts
 ```
 
 Esta migración es destructiva por diseño porque aplica los cambios solicitados:
@@ -110,7 +127,16 @@ Esta migración es destructiva por diseño porque aplica los cambios solicitados
 - Crea el rol `guardia` si falta.
 - Mantiene estacionamiento como complemento de una reserva de espacio, no como reserva independiente.
 
-Recomendación: aplicarla primero en una base de prueba antes de producción.
+La migración HU18 agrega índices para consultas de disponibilidad, monitoreo en tiempo real e IA.
+
+La migración HU19 agrega:
+
+- Tabla `space_blocks` para bloqueos por espacio, fecha y horario.
+- Índices para detectar traslapes de bloqueos.
+- Validación idempotente de espacios esperados por piso: Planta Baja 74, Mezzanine 117, Piso 3 36 y Piso 9 74.
+- Actualización de `floors.total_spaces` con los conteos reales.
+
+Recomendación: aplicarlas primero en una base de prueba antes de producción.
 
 ## Ejecución Local
 
@@ -163,7 +189,8 @@ Cobertura funcional incluida:
 
 - Servicio de reservas: creación con/sin estacionamiento, rechazo sin escritorio, recomendaciones inteligentes.
 - Controladores de reservas: creación, errores, ocupación con perfil, recomendaciones.
-- Admin/guardia: bloqueo de áreas y consulta de estacionamientos.
+- Admin/guardia: bloqueo por espacio, KPIs y consulta de estacionamientos.
+- Admin/gestión: bloqueo temporal por espacio y liberación de bloqueos.
 - Perfil: lectura y actualización de foto.
 - Frontend services: disponibilidad, ocupación, recomendaciones, admin, guardia y perfil.
 - Restricción de rutas por rol para guardia.
@@ -171,8 +198,8 @@ Cobertura funcional incluida:
 
 Última validación local:
 
-- Backend: `npm test` con 14 pruebas y `npm run build`.
-- Frontend: `npm run lint`, `npm test` con 12 pruebas y `npm run build`.
+- Backend: `npm test` con 17 pruebas y `npm run build`.
+- Frontend: `npm run lint`, `npm test` con 15 pruebas y `npm run build`.
 
 ## Arquitectura
 
@@ -204,6 +231,7 @@ Reservas:
 - `GET /reservations/availability`
 - `GET /reservations/occupancy`
 - `GET /reservations/recommendations`
+- `POST /reservations/assistant`
 - `GET /reservations/events`
 - `POST /reservations`
 - `GET /reservations/my`
@@ -218,6 +246,8 @@ Pisos:
 Admin:
 
 - `GET /reservations/admin/overview`
+- `POST /reservations/admin/space-blocks`
+- `DELETE /reservations/admin/space-blocks/:id`
 - `POST /reservations/admin/area-blocks`
 - `DELETE /reservations/admin/area-blocks/:id`
 
@@ -232,13 +262,22 @@ Guardia:
 - El estacionamiento requiere al menos 24 horas de anticipación.
 - Un usuario no puede tener reservas de oficina traslapadas.
 - Un usuario no puede tener estacionamientos traslapados.
-- Un espacio bloqueado por admin no aparece disponible ni puede reservarse.
+- Un espacio bloqueado por admin para una fecha y horario no aparece disponible ni puede reservarse durante ese rango.
 - El check-in respeta ventana de anticipación y red permitida si se configura.
 - Las reservas vencidas sin check-in se expiran automáticamente como `no_show`.
 
 ## Predicciones y Recomendaciones
 
-El motor inteligente usa datos existentes del sistema y no requiere un proveedor externo. Es un modelo local, auditable y rápido diseñado para explicar sus decisiones en la interfaz sin bloquear el flujo manual de reserva.
+El motor inteligente usa dos capas. Primero prepara señales locales auditables con los datos existentes del sistema. Después envía candidatos y contexto al proveedor configurado en `AI_PROVIDER` para que Gemini u OpenAI elija y ordene recomendaciones reales.
+
+Proveedor recomendado para desarrollo:
+
+- `AI_PROVIDER=gemini`
+- `GEMINI_MODEL=gemini-2.5-flash-lite`
+- `GEMINI_FALLBACK_MODELS=gemini-2.5-flash,gemini-2.0-flash-lite`
+
+Gemini puede usarse con el tier gratuito de Google AI Studio mientras no se habilite facturación y se respeten los límites del servicio. En producción conviene revisar límites, privacidad y billing del proveedor antes de exponerlo a usuarios finales.
+Si el modelo principal responde con saturación temporal o rate limit, el backend intenta automáticamente los modelos de fallback configurados.
 
 Señales usadas:
 
@@ -258,6 +297,8 @@ La respuesta incluye:
 
 En el frontend, las recomendaciones se muestran como brillo sobre el mapa. Si no hay filtro de piso, el backend reparte las recomendaciones entre pisos para evitar que todas queden concentradas en el primer piso. Al hacer hover sobre un espacio recomendado se muestra una razón corta, por ejemplo cercanía con una persona frecuente o afinidad con el historial del usuario.
 
+El chatbot usa el mismo proveedor de IA y responde solo con el contexto autorizado del usuario autenticado. Si el usuario es administrador, puede incluir KPIs operativos; si es empleado, limita la respuesta a sus reservas y recomendaciones.
+
 ## Monitoreo en Tiempo Real
 
 La API expone `GET /reservations/events` como un canal SSE autenticado. El frontend mantiene una conexión `EventSource` mientras la sesión está activa y escucha eventos de:
@@ -267,6 +308,8 @@ La API expone `GET /reservations/events` como un canal SSE autenticado. El front
 - `reservation.checked_in`
 - `area_block.created`
 - `area_block.deleted`
+- `space_block.created`
+- `space_block.deleted`
 
 Cada evento incluye `id`, `type`, `timestamp` y, cuando aplica, fecha de reserva, espacio, piso, usuario actor y si afecta estacionamiento.
 
@@ -275,10 +318,13 @@ Vistas que se resincronizan sin refrescar:
 - `/nueva-reserva`: disponibilidad, ocupación del mapa y recomendaciones.
 - `/dashboard`: reserva del día, próximas reservas, historial corto y métricas de logros.
 - `/mis-reservas`: lista activa o historial según la pestaña abierta.
-- `/admin`: KPIs, gráficas, ocupación y bloqueos.
+- `/admin`: KPIs, gráficas y ocupación.
+- `/admin/gestion`: mapa de gestión y bloqueos por espacio.
 - `/guardia`: reservas de estacionamiento del día.
 
 ## Vista Administrador
+
+El administrador solo ve dos pestañas: Dashboard y Gestión.
 
 La vista `/admin` muestra:
 
@@ -293,9 +339,9 @@ La vista `/admin` muestra:
 - Usuarios con más actividad.
 - Ocupación por piso.
 - Ocupación por categoría.
-- Bloqueos activos.
+- Bloqueos activos por espacio y por área.
 
-También permite bloquear o liberar un área completa por piso y categoría.
+La vista `/admin/gestion` muestra un mapa como el de reservas, sin recomendaciones de IA. Al seleccionar un escritorio o sala, el administrador puede bloquear ese lugar para una fecha y horario específicos, confirmar la acción y liberar bloqueos existentes.
 
 ## Vista Guardia
 
@@ -355,14 +401,16 @@ Para validar una instalación:
 - `PARKING_TOO_LATE`: estacionamiento solicitado con menos de 24 horas.
 - `PARKING_CONFLICT`: el usuario ya tiene estacionamiento traslapado.
 - `SPACE_UNAVAILABLE`: el espacio fue reservado o bloqueado.
+- `AI_NOT_CONFIGURED`: falta configurar `AI_PROVIDER` y la API key correspondiente.
+- `AI_PROVIDER_ERROR`: el proveedor de IA no respondió, rechazó el modelo o devolvió una respuesta inválida.
 - `DATABASE_ERROR`: revisar `DATABASE_URL`, migraciones y conectividad.
 
 ## Estado de Calidad
 
 Comandos verificados durante el desarrollo:
 
-- `luminaBack-main`: `npm test` con 14 pruebas, `npm run build`.
-- `luminaFront-main`: `npm run lint`, `npm test` con 12 pruebas, `npm run build`.
+- `luminaBack-main`: `npm test` con 16 pruebas, `npm run build`.
+- `luminaFront-main`: `npm run lint`, `npm test` con 14 pruebas, `npm run build`.
 
 ## Seguridad
 

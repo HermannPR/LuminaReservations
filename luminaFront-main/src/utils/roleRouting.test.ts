@@ -13,6 +13,6 @@ describe('roleRouting', () => {
     expect(getRoleHomePath('guardia')).toBe('/guardia')
     expect(getRoleHomePath('guard')).toBe('/guardia')
     expect(getRoleHomePath('employee')).toBe('/dashboard')
-    expect(getRoleHomePath('admin')).toBe('/dashboard')
+    expect(getRoleHomePath('admin')).toBe('/admin')
   })
 })

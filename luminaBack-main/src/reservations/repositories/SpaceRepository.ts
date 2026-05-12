@@ -51,6 +51,15 @@ export class SpaceRepository {
               AND ab.priority_category = spaces.priority_category
               AND ab.is_active = true
           )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM space_blocks sb
+            WHERE sb.space_id = spaces.id
+              AND sb.block_date = $1
+              AND sb.start_time < $2
+              AND sb.end_time > $3
+              AND sb.is_active = true
+          )
           ${whereClause}
           AND NOT EXISTS (
             SELECT 1 FROM reservations existing

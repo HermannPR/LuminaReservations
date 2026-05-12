@@ -6,6 +6,7 @@ export interface BadgeInfo {
   name: string
   description: string
   tier: number
+  earned_percentage: number
 }
 
 export interface EarnedBadge extends BadgeInfo {
@@ -21,16 +22,37 @@ export class BadgeRepository {
 
   async findAll(): Promise<BadgeInfo[]> {
     const result = await this.db.query<BadgeInfo>(
-      "SELECT id, key, name, description, tier FROM badges ORDER BY tier, id"
+      `SELECT b.id,
+              b.key,
+              b.name,
+              b.description,
+              b.tier,
+              0::float AS earned_percentage
+       FROM badges b
+       ORDER BY b.tier, b.id`
     )
     return result.rows
   }
 
   async findAllWithStatus(userId: number): Promise<BadgeWithStatus[]> {
     const result = await this.db.query<BadgeWithStatus>(
-      `SELECT b.id, b.key, b.name, b.description, b.tier,
+      `WITH active_users AS (
+         SELECT COUNT(*)::float AS total
+         FROM users
+         WHERE is_active = true
+           AND LOWER(role) NOT IN ('guard', 'guardia')
+       ),
+       earned_counts AS (
+         SELECT badge_id, COUNT(DISTINCT user_id)::float AS earned
+         FROM user_badges
+         GROUP BY badge_id
+       )
+       SELECT b.id, b.key, b.name, b.description, b.tier,
+              COALESCE(ROUND(((ec.earned / NULLIF(au.total, 0)) * 100)::numeric, 1), 0)::float AS earned_percentage,
               ub.earned_at::text AS earned_at
        FROM badges b
+       CROSS JOIN active_users au
+       LEFT JOIN earned_counts ec ON ec.badge_id = b.id
        LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1
        ORDER BY b.tier, b.id`,
       [userId]

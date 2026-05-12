@@ -1,248 +1,3 @@
-// import { useState, useEffect } from 'react';
-// import { useNavigate, Link } from 'react-router-dom';
-// import type { FilterValues, SpaceAvailability, ReservationResponse } from '../../types/reservation';
-// import { getSession } from '../../services/tokenStore';
-// import { fetchAvailability, createReservation } from '../../services/reservationService';
-// import { mapReservationError } from '../../utils/reservationValidator';
-// import { FilterPanel } from './FilterPanel/FilterPanel';
-// import { FloorMap } from './FloorMap/FloorMap';
-// import { SelectedSpacePanel } from './SelectedSpacePanel/SelectedSpacePanel';
-// import { ConfirmationModal } from './ConfirmationModal/ConfirmationModal';
-// import { SuccessModal } from './SuccessModal/SuccessModal';
-// import { ErrorBanner } from '../ErrorBanner/ErrorBanner';
-// import styles from './NewReservationPage.module.css';
-
-// interface ReservationFlowState {
-//   filters: FilterValues;
-//   availableSpaces: SpaceAvailability[];
-//   selectedSpace: SpaceAvailability | null;
-//   isSearching: boolean;
-//   hasSearched: boolean;
-//   searchError: string | null;
-//   floorCategories: string[] | null;
-//   showConfirmationModal: boolean;
-//   showSuccessModal: boolean;
-//   confirmedReservation: ReservationResponse | null;
-//   confirmError: string | null;
-//   isConfirming: boolean;
-// }
-
-// const initialFilters: FilterValues = {
-//   reservation_date: '',
-//   start_time: '',
-//   end_time: '',
-//   floor_id: null,
-//   priority_category: null,
-// };
-
-// export function NewReservationPage(): JSX.Element {
-//   const navigate = useNavigate();
-
-//   const [state, setState] = useState<ReservationFlowState>({
-//     filters: initialFilters,
-//     availableSpaces: [],
-//     selectedSpace: null,
-//     isSearching: false,
-//     hasSearched: false,
-//     searchError: null,
-//     floorCategories: null,
-//     showConfirmationModal: false,
-//     showSuccessModal: false,
-//     confirmedReservation: null,
-//     confirmError: null,
-//     isConfirming: false,
-//   });
-
-//   useEffect(() => {
-//     const token = getSession()?.access_token;
-//     if (!token) {
-//       navigate('/login', { replace: true });
-//     }
-//   }, [navigate]);
-
-//   async function handleSearch() {
-//     const token = getSession()?.access_token;
-//     if (!token) {
-//       navigate('/login', { replace: true });
-//       return;
-//     }
-
-//     setState((prev) => ({ ...prev, isSearching: true, searchError: null }));
-
-//     const result = await fetchAvailability(state.filters, token);
-
-//     if (!result.success) {
-//       if (result.unauthorized) {
-//         navigate('/login', { replace: true });
-//         return;
-//       }
-//       setState((prev) => ({
-//         ...prev,
-//         isSearching: false,
-//         searchError: 'No se pudo obtener la disponibilidad. Intenta de nuevo.',
-//       }));
-//       return;
-//     }
-
-//     setState((prev) => ({
-//       ...prev,
-//       isSearching: false,
-//       hasSearched: true,
-//       availableSpaces: result.data,
-//       selectedSpace: null,
-//     }));
-//   }
-
-//   function handleSelectSpace(space: SpaceAvailability) {
-//     setState((prev) => ({ ...prev, selectedSpace: space, confirmError: null }));
-//   }
-
-//   function handleContinue() {
-//     setState((prev) => ({ ...prev, showConfirmationModal: true }));
-//   }
-
-//   async function handleConfirm() {
-//     const token = getSession()?.access_token;
-//     if (!token) {
-//       navigate('/login', { replace: true });
-//       return;
-//     }
-
-//     if (!state.selectedSpace) return;
-
-//     setState((prev) => ({ ...prev, isConfirming: true, confirmError: null }));
-
-//     const result = await createReservation(
-//       {
-//         space_id: state.selectedSpace.id,
-//         reservation_date: state.filters.reservation_date,
-//         start_time: state.filters.start_time,
-//         end_time: state.filters.end_time,
-//       },
-//       token
-//     );
-
-//     if (result.success) {
-//       setState((prev) => ({
-//         ...prev,
-//         isConfirming: false,
-//         confirmedReservation: result.data,
-//         showSuccessModal: true,
-//         showConfirmationModal: false,
-//       }));
-//       return;
-//     }
-
-//     if (result.unauthorized) {
-//       navigate('/login', { replace: true });
-//       return;
-//     }
-
-//     const errorCode = result.error;
-
-//     if (errorCode === 'SPACE_NOT_FOUND' || errorCode === 'SPACE_UNAVAILABLE') {
-//       const removedId = state.selectedSpace.id;
-//       setState((prev) => ({
-//         ...prev,
-//         isConfirming: false,
-//         confirmError: mapReservationError(errorCode),
-//         availableSpaces: prev.availableSpaces.filter((s) => s.id !== removedId),
-//         selectedSpace: null,
-//       }));
-//       return;
-//     }
-
-//     setState((prev) => ({
-//       ...prev,
-//       isConfirming: false,
-//       confirmError: mapReservationError(errorCode),
-//     }));
-//   }
-
-//   function handleCancelModal() {
-//     setState((prev) => ({ ...prev, showConfirmationModal: false, confirmError: null }));
-//   }
-
-//   function handleViewReservations() {
-//     navigate('/mis-reservas');
-//   }
-
-//   function handleCategoriesLoaded(cats: string[]) {
-//     setState((prev) => {
-//       // If current priority_category is not in the new floor's categories, reset it
-//       const catInvalid = prev.filters.priority_category !== null && !cats.includes(prev.filters.priority_category)
-//       return {
-//         ...prev,
-//         floorCategories: cats,
-//         filters: catInvalid ? { ...prev.filters, priority_category: null } : prev.filters,
-//       }
-//     })
-//   }
-
-//   return (
-//     <div className={styles.page}>
-//       <header className={styles.header}>
-//         <Link to="/dashboard" className={styles.backLink} aria-label="Volver al dashboard">
-//           ← Dashboard
-//         </Link>
-//         <h1 className={styles.title}>Nueva Reserva</h1>
-//       </header>
-
-//       <div className={styles.layout}>
-//         <aside className={styles.sidebar}>
-//           <FilterPanel
-//             values={state.filters}
-//             onChange={(filters) => setState((prev) => ({ ...prev, filters }))}
-//             onSearch={handleSearch}
-//             isLoading={state.isSearching}
-//             availableCategories={state.filters.floor_id !== null ? state.floorCategories : null}
-//           />
-//           <SelectedSpacePanel
-//             space={state.selectedSpace}
-//             filters={state.filters}
-//             onContinue={handleContinue}
-//           />
-//         </aside>
-
-//         <main className={styles.main}>
-//           {state.searchError && <ErrorBanner message={state.searchError} />}
-//           <FloorMap
-//             floorId={state.filters.floor_id}
-//             availableSpaces={state.availableSpaces}
-//             selectedSpaceId={state.selectedSpace?.id ?? null}
-//             onSelectSpace={handleSelectSpace}
-//             isLoading={state.isSearching}
-//             hasSearched={state.hasSearched}
-//             onCategoriesLoaded={handleCategoriesLoaded}
-//           />
-//         </main>
-//       </div>
-
-//       {state.showConfirmationModal && state.selectedSpace && (
-//         <ConfirmationModal
-//           isOpen={state.showConfirmationModal}
-//           space={state.selectedSpace}
-//           filters={state.filters}
-//           onConfirm={handleConfirm}
-//           onCancel={handleCancelModal}
-//           isLoading={state.isConfirming}
-//           error={state.confirmError}
-//         />
-//       )}
-
-//       {state.showSuccessModal && state.confirmedReservation && state.selectedSpace && (
-//         <SuccessModal
-//           isOpen={state.showSuccessModal}
-//           reservation={state.confirmedReservation}
-//           space={state.selectedSpace}
-//           filters={state.filters}
-//           onViewReservations={handleViewReservations}
-//         />
-//       )}
-//     </div>
-//   );
-// }
-
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type {
@@ -362,7 +117,10 @@ export function NewReservationPage(): JSX.Element {
     const { reservation_date, start_time, end_time } = state.filters
     const allFilled = reservation_date && start_time && end_time && end_time > start_time
     if (!allFilled) return
-    handleSearchRef.current?.()
+    const timeoutId = window.setTimeout(() => {
+      handleSearchRef.current?.()
+    }, 220)
+    return () => window.clearTimeout(timeoutId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.filters.reservation_date, state.filters.start_time, state.filters.end_time, state.filters.floor_id, state.filters.priority_category])
 
@@ -428,6 +186,13 @@ export function NewReservationPage(): JSX.Element {
 
   function handleSelectSpace(space: SpaceAvailability) {
     setState((prev) => ({ ...prev, selectedSpace: space, confirmError: null }))
+  }
+
+  function handleVisibleFloorChange(floorId: number) {
+    setState((prev) => {
+      if (!prev.selectedSpace || prev.selectedSpace.floor_id === floorId) return prev
+      return { ...prev, selectedSpace: null, confirmError: null }
+    })
   }
 
   function handleContinue() {
@@ -592,6 +357,7 @@ export function NewReservationPage(): JSX.Element {
                 aiRecommendedSpaces={aiRecommendedSpaces}
                 refreshKey={mapRefreshKey}
                 onCategoriesLoaded={handleCategoriesLoaded}
+                onVisibleFloorChange={handleVisibleFloorChange}
               />
             </div>
           </main>

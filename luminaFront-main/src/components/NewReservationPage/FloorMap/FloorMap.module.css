@@ -301,6 +301,58 @@
   line-height: 1.45;
 }
 
+:global([data-theme='dark']) .tab {
+  border-color: rgba(161, 0, 255, 0.42);
+  background: rgba(161, 0, 255, 0.08);
+  color: #a100ff;
+}
+
+:global([data-theme='dark']) .tab:hover {
+  background: rgba(161, 0, 255, 0.16);
+}
+
+:global([data-theme='dark']) .tabActive {
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+  color: #ffffff;
+}
+
+:global([data-theme='dark']) .mapArea,
+:global([data-theme='dark']) .occupancyDialog {
+  background: #202b38;
+  border-color: rgba(161, 0, 255, 0.14);
+}
+
+:global([data-theme='dark']) .loadingOverlay {
+  background: rgba(23, 32, 43, 0.76);
+}
+
+:global([data-theme='dark']) .centeredHint,
+:global([data-theme='dark']) .emptyMessage,
+:global([data-theme='dark']) .occupancyHint,
+:global([data-theme='dark']) .occupancyEmpty {
+  color: #a99bb9;
+}
+
+:global([data-theme='dark']) .occupancyBackdrop {
+  background: rgba(0, 0, 0, 0.56);
+}
+
+:global([data-theme='dark']) .occupancyTitle,
+:global([data-theme='dark']) .occupantInfo span:last-child {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .occupancyClose,
+:global([data-theme='dark']) .occupancyItem {
+  background: rgba(161, 0, 255, 0.1);
+  border-color: rgba(161, 0, 255, 0.14);
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .occupantInfo small {
+  color: #b9c3d0;
+}
+
 @media (max-width: 768px) {
   .mapToolbar {
     align-items: center;

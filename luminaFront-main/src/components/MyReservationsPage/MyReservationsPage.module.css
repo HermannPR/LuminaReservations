@@ -355,6 +355,58 @@
   font-weight: 700;
 }
 
+:global([data-theme='dark']) .tab,
+:global([data-theme='dark']) .emptyMsg,
+:global([data-theme='dark']) .card {
+  background: rgba(35, 47, 61, 0.94);
+  border-color: rgba(161, 0, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
+:global([data-theme='dark']) .tab {
+  color: #a100ff;
+}
+
+:global([data-theme='dark']) .tab:hover {
+  color: #ffffff;
+  background: rgba(161, 0, 255, 0.13);
+}
+
+:global([data-theme='dark']) .tabActive {
+  color: #ffffff;
+  background: linear-gradient(135deg, #a100ff, #7500c0);
+}
+
+:global([data-theme='dark']) .spaceNum {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .floorName,
+:global([data-theme='dark']) .cardMeta,
+:global([data-theme='dark']) .actionHint,
+:global([data-theme='dark']) .emptyMsg {
+  color: #b9c3d0;
+}
+
+:global([data-theme='dark']) .checkInBtn {
+  background: rgba(161, 0, 255, 0.11);
+  color: #a100ff;
+  border-color: rgba(161, 0, 255, 0.18);
+}
+
+:global([data-theme='dark']) .errorMsg {
+  color: #ff9aaa;
+  background: rgba(255, 50, 70, 0.12);
+  border-color: rgba(255, 50, 70, 0.2);
+}
+
+:global([data-theme='dark']) .successMsg,
+:global([data-theme='dark']) .checkInBtnDone {
+  color: #76eac4;
+  background: rgba(15, 181, 132, 0.13);
+  border-color: rgba(15, 181, 132, 0.22);
+}
+
 @media (max-width: 640px) {
   .tabs {
     display: grid;

@@ -74,6 +74,27 @@
   --transition-slow: 320ms ease;
 }
 
+:root[data-theme='dark'] {
+  --bg-app: #17202b;
+  --bg-app-2: #202b38;
+  --bg-panel: rgba(32, 43, 56, 0.78);
+  --bg-card: rgba(35, 47, 61, 0.92);
+  --bg-soft: #202b38;
+  --bg-soft-2: #263442;
+
+  --text-primary: #f8f5ff;
+  --text-secondary: #c6bad6;
+  --text-muted: #9488a6;
+
+  --border-soft: rgba(161, 0, 255, 0.12);
+  --border-medium: rgba(161, 0, 255, 0.2);
+  --border-strong: rgba(161, 0, 255, 0.3);
+
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --shadow-medium: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --shadow-large: 0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
 /* ========= Reset ========= */
 
 *,
@@ -104,7 +125,14 @@ body {
   color: var(--text-primary);
   background:
     radial-gradient(circle at top left, rgba(161, 0, 255, 0.08), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(190, 130, 255, 0.14), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(161, 0, 255, 0.14), transparent 22%),
+    linear-gradient(180deg, var(--bg-app-2) 0%, var(--bg-app) 100%);
+}
+
+:root[data-theme='dark'] body {
+  background:
+    radial-gradient(circle at top left, rgba(161, 0, 255, 0.12), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(161, 0, 255, 0.08), transparent 22%),
     linear-gradient(180deg, var(--bg-app-2) 0%, var(--bg-app) 100%);
 }
 
@@ -180,6 +208,12 @@ h3 {
 
 p {
   color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  color-scheme: dark;
 }
 
 /* ========= Scrollbar ========= */
@@ -388,7 +422,7 @@ p {
 
 .badge-reserved {
   color: var(--color-purple-3);
-  background: rgba(190, 130, 255, 0.20);
+  background: rgba(161, 0, 255, 0.20);
 }
 
 /* ========= Animations ========= */

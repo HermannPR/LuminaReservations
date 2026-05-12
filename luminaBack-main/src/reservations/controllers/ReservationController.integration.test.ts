@@ -3,6 +3,7 @@ import type { Request, Response } from "express"
 import { ReservationController } from "./ReservationController"
 import { AdminController } from "./AdminController"
 import { GuardController } from "./GuardController"
+import { ReservationAssistantController } from "./ReservationAssistantController"
 import { ReservationError } from "../errors"
 import type { ReservationService } from "../services/ReservationService"
 import type { ReservationRepository } from "../repositories/ReservationRepository"
@@ -62,6 +63,7 @@ describe("ReservationController integration", () => {
     reservationService = {
       createReservation: vi.fn(),
       getRecommendations: vi.fn(),
+      answerAssistantQuestion: vi.fn(),
     } as unknown as ReservationService
 
     reservationRepository = {
@@ -189,6 +191,31 @@ describe("ReservationController integration", () => {
       priority_category: "escritorio",
     }, 7)
   })
+
+  it("answers assistant questions with the authenticated user context", async () => {
+    vi.mocked(reservationService.answerAssistantQuestion).mockResolvedValue({
+      answer: "Te recomiendo PB-21.",
+      confidence: 0.86,
+      intent: "recommendation",
+      recommendations: [{
+        space_id: 21,
+        space_number: "PB-21",
+        floor_id: 1,
+        score: 94,
+        reason: "mejor disponibilidad prevista",
+      }],
+      actions: [{ label: "Abrir nueva reserva", to: "/nueva-reserva" }],
+    })
+    const response = makeResponse()
+
+    await new ReservationAssistantController(reservationService).ask(makeRequest({
+      body: { message: "¿Dónde me recomiendas sentarme?" },
+    }), response)
+
+    expect(response.statusCodeValue).toBe(200)
+    expect(response.body).toMatchObject({ answer: "Te recomiendo PB-21.", intent: "recommendation" })
+    expect(reservationService.answerAssistantQuestion).toHaveBeenCalledWith("¿Dónde me recomiendas sentarme?", 7, "")
+  })
 })
 
 describe("AdminController", () => {
@@ -212,6 +239,38 @@ describe("AdminController", () => {
 
     expect(response.statusCodeValue).toBe(201)
     expect(repository.blockArea).toHaveBeenCalledWith(1, "escritorio", "Mantenimiento")
+  })
+
+  it("blocks a single space with date and time through the repository", async () => {
+    const repository = {
+      blockSpace: vi.fn().mockResolvedValue({
+        id: 8,
+        space_id: 12,
+        space_number: "PB-12",
+        floor_id: 0,
+        floor_name: "Planta Baja",
+        block_date: "2099-06-01",
+        start_time: "09:00",
+        end_time: "11:00",
+        reason: "Mantenimiento",
+        is_active: true,
+        created_at: new Date(),
+      }),
+    } as unknown as ReservationRepository
+    const response = makeResponse()
+
+    await new AdminController(repository).blockSpace(makeRequest({
+      body: {
+        space_id: 12,
+        block_date: "2099-06-01",
+        start_time: "09:00",
+        end_time: "11:00",
+        reason: "Mantenimiento",
+      },
+    }), response)
+
+    expect(response.statusCodeValue).toBe(201)
+    expect(repository.blockSpace).toHaveBeenCalledWith(12, "2099-06-01", "09:00", "11:00", "Mantenimiento")
   })
 })
 

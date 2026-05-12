@@ -109,6 +109,25 @@ export interface RecommendationResult {
   recommendations: IntelligentRecommendation[]
 }
 
+export interface AssistantRecommendationSummary {
+  space_id: number
+  space_number: string
+  floor_id: number
+  score: number
+  reason: string
+}
+
+export interface AssistantResponse {
+  answer: string
+  confidence: number
+  intent: "recommendation" | "reservation_status" | "admin_insight" | "parking" | "general"
+  recommendations: AssistantRecommendationSummary[]
+  actions: Array<{
+    label: string
+    to: string
+  }>
+}
+
 export interface UserPreferenceSignals {
   total_reservations: number
   spaces: Map<number, number>
@@ -132,6 +151,14 @@ export interface Reservation {
   parking_spot_id: number | null
   created_at: Date
   updated_at: Date
+}
+
+export interface ReservationEventDetails {
+  reservation_id: number
+  reservation_date: string
+  space_id: number | null
+  floor_id?: number
+  parking: boolean
 }
 
 export interface AvailabilityFilter {
@@ -189,6 +216,7 @@ export interface BadgeInfo {
   name: string
   description: string
   tier: number
+  earned_percentage?: number
 }
 
 export interface CheckInResult {
@@ -210,6 +238,7 @@ export interface AdminKpiOverview {
   occupied_spaces: number
   occupancy_rate: number
   blocked_area_count: number
+  blocked_space_count: number
   status_breakdown: Array<{
     status: ReservationStatus
     count: number
@@ -239,6 +268,7 @@ export interface AdminKpiOverview {
     occupancy_rate: number
   }>
   blocked_areas: AreaBlock[]
+  blocked_spaces: SpaceBlock[]
 }
 
 export interface AreaBlock {
@@ -246,6 +276,20 @@ export interface AreaBlock {
   floor_id: number
   floor_name: string
   priority_category: PriorityCategory
+  reason: string | null
+  is_active: boolean
+  created_at: Date
+}
+
+export interface SpaceBlock {
+  id: number
+  space_id: number
+  space_number: string
+  floor_id: number
+  floor_name: string
+  block_date: string
+  start_time: string
+  end_time: string
   reason: string | null
   is_active: boolean
   created_at: Date

@@ -8,6 +8,14 @@ const VALID_PRIORITY_CATEGORIES = new Set<PriorityCategory>([
   "escritorio", "colaborativo", "work_lab", "phone_booth", "garage",
 ])
 
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function isTime(value: string): boolean {
+  return /^\d{2}:\d{2}$/.test(value)
+}
+
 export class AdminController {
   constructor(
     private readonly reservationRepository: ReservationRepository,
@@ -65,6 +73,62 @@ export class AdminController {
 
       this.eventHub?.publish({
         type: "area_block.deleted",
+      })
+      res.json({ status: "unblocked" })
+    } catch (err) {
+      this.handleError(err, res)
+    }
+  }
+
+  async blockSpace(req: Request, res: Response): Promise<void> {
+    try {
+      const spaceId = Number(req.body?.space_id)
+      const blockDate = String(req.body?.block_date ?? "")
+      const startTime = String(req.body?.start_time ?? "")
+      const endTime = String(req.body?.end_time ?? "")
+      const reason = typeof req.body?.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim()
+        : null
+
+      if (!Number.isInteger(spaceId) || spaceId <= 0) {
+        res.status(400).json({ error: "INVALID_SPACE", message: "Espacio inválido" })
+        return
+      }
+
+      if (!isIsoDate(blockDate) || !isTime(startTime) || !isTime(endTime) || endTime <= startTime) {
+        res.status(400).json({ error: "INVALID_TIME_RANGE", message: "Fecha u horario inválido" })
+        return
+      }
+
+      const block = await this.reservationRepository.blockSpace(spaceId, blockDate, startTime, endTime, reason)
+      this.eventHub?.publish({
+        type: "space_block.created",
+        floor_id: block.floor_id,
+        space_id: block.space_id,
+        reservation_date: block.block_date,
+      })
+      res.status(201).json(block)
+    } catch (err) {
+      this.handleError(err, res)
+    }
+  }
+
+  async unblockSpace(req: Request, res: Response): Promise<void> {
+    try {
+      const blockId = Number(req.params.id)
+      if (!Number.isInteger(blockId)) {
+        res.status(400).json({ error: "INVALID_ID", message: "ID inválido" })
+        return
+      }
+
+      const updated = await this.reservationRepository.unblockSpace(blockId)
+      if (!updated) {
+        res.status(404).json({ error: "NOT_FOUND", message: "Bloqueo no encontrado" })
+        return
+      }
+
+      this.eventHub?.publish({
+        type: "space_block.deleted",
       })
       res.json({ status: "unblocked" })
     } catch (err) {

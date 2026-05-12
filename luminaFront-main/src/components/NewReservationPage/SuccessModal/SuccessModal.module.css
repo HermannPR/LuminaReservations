@@ -184,6 +184,28 @@
   box-shadow: 0 0 0 3px rgba(161, 0, 255, 0.35);
 }
 
+:global([data-theme='dark']) .modal {
+  background: #202b38;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(161, 0, 255, 0.12);
+}
+
+:global([data-theme='dark']) .summary,
+:global([data-theme='dark']) .code {
+  background: rgba(161, 0, 255, 0.09);
+  border-color: rgba(161, 0, 255, 0.14);
+}
+
+:global([data-theme='dark']) .rowValue {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .codeLabel,
+:global([data-theme='dark']) .rowLabel {
+  color: #b9c3d0;
+}
+
 @media (max-width: 520px) {
   .backdrop {
     align-items: flex-end;

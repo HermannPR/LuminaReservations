@@ -23,14 +23,6 @@ import {
 } from '../../utils/checkInUtils'
 import styles from './DashboardPage.module.css'
 
-const TIER_CHIP_CLASS: Record<number, string> = {
-  1: styles.badgeChipT1,
-  2: styles.badgeChipT2,
-  3: styles.badgeChipT3,
-  4: styles.badgeChipT4,
-  5: styles.badgeChipT5,
-}
-
 function getReservationLabel(reservation: UserReservation): string {
   return reservation.space_number
 }
@@ -459,7 +451,7 @@ export function DashboardPage(): JSX.Element {
                   {recentEarned.map((b) => (
                     <span
                       key={b.id}
-                      className={`${styles.badgeChip} ${TIER_CHIP_CLASS[b.tier] ?? styles.badgeChipT1}`}
+                      className={styles.badgeChip}
                     >
                       🏅 {b.name}
                     </span>

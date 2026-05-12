@@ -10,6 +10,7 @@ export interface BadgeInfo {
   name: string
   description: string
   tier: number
+  earned_percentage: number
 }
 
 export interface BadgeWithStatus extends BadgeInfo {

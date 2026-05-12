@@ -643,19 +643,17 @@
   font-size: 0.82rem;
   font-weight: 700;
   white-space: nowrap;
-  border: 1px solid transparent;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  color: #6a00cc;
+  background: rgba(161, 0, 255, 0.08);
+  border: 1px solid rgba(161, 0, 255, 0.15);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
 .badgeChip:hover {
   transform: translateY(-2px);
+  border-color: rgba(161, 0, 255, 0.28);
+  box-shadow: 0 10px 24px rgba(117, 0, 192, 0.12);
 }
-
-.badgeChipT1 { background: rgba(161, 0, 255, 0.08); color: #6a00cc; border-color: rgba(161, 0, 255, 0.15); }
-.badgeChipT2 { background: rgba(0, 100, 220, 0.08); color: #0050aa; border-color: rgba(0, 100, 220, 0.15); }
-.badgeChipT3 { background: rgba(0, 140, 114, 0.08); color: #006b57; border-color: rgba(0, 140, 114, 0.15); }
-.badgeChipT4 { background: rgba(200, 120, 0, 0.08); color: #9a5a00; border-color: rgba(200, 120, 0, 0.15); }
-.badgeChipT5 { background: linear-gradient(135deg, rgba(255, 180, 0, 0.12), rgba(255, 120, 0, 0.08)); color: #8a3a00; border-color: rgba(255, 140, 0, 0.2); }
 
 .noBadgeHint {
   margin: 0;
@@ -714,6 +712,53 @@
 .badgeToastName {
   font-size: 0.96rem;
   font-weight: 800;
+}
+
+:global([data-theme='dark']) .greetingName,
+:global([data-theme='dark']) .spaceNumber,
+:global([data-theme='dark']) .emptyTodayTitle,
+:global([data-theme='dark']) .actionLabel,
+:global([data-theme='dark']) .recentSpace {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .floorName,
+:global([data-theme='dark']) .helperPending,
+:global([data-theme='dark']) .nextUp,
+:global([data-theme='dark']) .actionSub,
+:global([data-theme='dark']) .recentFloor,
+:global([data-theme='dark']) .recentDate,
+:global([data-theme='dark']) .realtimeHint,
+:global([data-theme='dark']) .noBadgeHint {
+  color: #b9c3d0;
+}
+
+:global([data-theme='dark']) .todayCard,
+:global([data-theme='dark']) .emptyTodayCard,
+:global([data-theme='dark']) .actionCard,
+:global([data-theme='dark']) .recentItem,
+:global([data-theme='dark']) .realtimeStub {
+  background: rgba(35, 47, 61, 0.94);
+  border-color: rgba(161, 0, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
+:global([data-theme='dark']) .realtimeFloorTile {
+  background: rgba(161, 0, 255, 0.09);
+  border-color: rgba(161, 0, 255, 0.13);
+}
+
+:global([data-theme='dark']) .actionIcon,
+:global([data-theme='dark']) .checkInBtn {
+  background: rgba(161, 0, 255, 0.12);
+  color: #a100ff;
+}
+
+:global([data-theme='dark']) .globalError,
+:global([data-theme='dark']) .inlineError {
+  color: #ff9aaa;
+  background: rgba(255, 50, 70, 0.12);
+  border-color: rgba(255, 50, 70, 0.2);
 }
 
 /* ── Mobile ──────────────────────────────────────────────────── */

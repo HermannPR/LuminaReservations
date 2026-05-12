@@ -89,6 +89,27 @@
     0 0 0 3px rgba(255, 176, 0, 0.08);
 }
 
+:global([data-theme='dark']) .filterCard,
+:global([data-theme='dark']) .mapCard,
+:global([data-theme='dark']) .selectedCard {
+  background: linear-gradient(180deg, rgba(35, 47, 61, 0.96), rgba(29, 39, 52, 0.98));
+  border-color: rgba(161, 0, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+:global([data-theme='dark']) .aiMapCard {
+  border-color: rgba(255, 176, 0, 0.42);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.28),
+    0 0 0 3px rgba(255, 176, 0, 0.1);
+}
+
+:global([data-theme='dark']) .emptyWrap {
+  background: rgba(255, 176, 0, 0.11);
+  border-color: rgba(255, 176, 0, 0.24);
+  color: #ffd984;
+}
+
 /* Sliding sidebar — 0 → open */
 .sidePanel {
   width: 0;

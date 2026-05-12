@@ -24,3 +24,142 @@
   width: 100%;
   height: 100%;
 }
+
+.popupObject {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.hoverPopup {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: 1px solid rgba(117, 0, 192, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 36px rgba(24, 21, 31, 0.2);
+  color: #18151f;
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.15;
+  backdrop-filter: blur(8px);
+  animation: popupIn 140ms ease-out both;
+}
+
+.popupHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.popupHeader strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #460073;
+  font-size: 8px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popupHeader span,
+.hoverPopup p,
+.popupOccupant small,
+.popupOccupants em {
+  color: #6b6380;
+  font-size: 5px;
+  font-weight: 750;
+}
+
+.hoverPopup p {
+  margin: 0;
+}
+
+.popupOccupants {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.popupOccupant {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.popupAvatar {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #460073, #a100ff);
+  color: #ffffff;
+  font-size: 4.5px;
+  font-weight: 950;
+}
+
+.popupAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.popupOccupant span:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popupOccupant b {
+  overflow: hidden;
+  color: #18151f;
+  font-size: 5.5px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popupOccupants em {
+  font-style: normal;
+}
+
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+:global([data-theme='dark']) .hoverPopup {
+  border-color: rgba(161, 0, 255, 0.24);
+  background: rgba(35, 47, 61, 0.96);
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .popupHeader strong,
+:global([data-theme='dark']) .popupOccupant b {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .popupHeader span,
+:global([data-theme='dark']) .hoverPopup p,
+:global([data-theme='dark']) .popupOccupant small,
+:global([data-theme='dark']) .popupOccupants em {
+  color: #b9c3d0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hoverPopup {
+    animation: none;
+  }
+}

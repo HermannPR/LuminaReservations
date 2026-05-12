@@ -1,0 +1,21 @@
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+luminaBack-main/node_modules/
+luminaFront-main/node_modules/
+
+# Build outputs
+dist/
+luminaBack-main/dist/
+luminaFront-main/dist/
+
+# Logs and caches
+*.log
+.vite/
+coverage/

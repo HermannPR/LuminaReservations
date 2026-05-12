@@ -294,6 +294,58 @@
   animation: autoDismissFade 5s ease forwards;
 }
 
+:global([data-theme='dark']) .guardHero,
+:global([data-theme='dark']) .summaryCard,
+:global([data-theme='dark']) .zonePanel,
+:global([data-theme='dark']) .emptyState {
+  background: rgba(35, 47, 61, 0.94);
+  border-color: rgba(161, 0, 255, 0.14);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
+:global([data-theme='dark']) .heroCopy h3,
+:global([data-theme='dark']) .summaryCard strong,
+:global([data-theme='dark']) .zoneHeader h3,
+:global([data-theme='dark']) .cardTop,
+:global([data-theme='dark']) .blockItem strong {
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .heroCopy p,
+:global([data-theme='dark']) .summaryCard small,
+:global([data-theme='dark']) .meta,
+:global([data-theme='dark']) .emptyState {
+  color: #b9c3d0;
+}
+
+:global([data-theme='dark']) .dateControl input {
+  border-color: rgba(161, 0, 255, 0.16);
+  background: rgba(21, 28, 38, 0.86);
+  color: #f8f5ff;
+}
+
+:global([data-theme='dark']) .card {
+  background: rgba(161, 0, 255, 0.09);
+  border-color: rgba(161, 0, 255, 0.13);
+}
+
+:global([data-theme='dark']) .spotPill,
+:global([data-theme='dark']) .statusChip {
+  background: rgba(161, 0, 255, 0.13);
+  color: #a100ff;
+}
+
+:global([data-theme='dark']) .statusActive {
+  background: rgba(24, 181, 112, 0.14);
+  color: #76eac4;
+}
+
+:global([data-theme='dark']) .errorMsg {
+  color: #ff9aaa;
+  background: rgba(255, 50, 70, 0.12);
+  border-color: rgba(255, 50, 70, 0.2);
+}
+
 @media (max-width: 640px) {
   .guardHero {
     align-items: stretch;

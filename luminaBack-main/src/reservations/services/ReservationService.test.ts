@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ReservationService } from "./ReservationService"
 import type { SpaceRepository } from "../repositories/SpaceRepository"
 import type { ReservationRepository } from "../repositories/ReservationRepository"
@@ -62,6 +62,55 @@ describe("ReservationService", () => {
   let service: ReservationService
 
   beforeEach(() => {
+    process.env.AI_PROVIDER = "gemini"
+    process.env.GEMINI_API_KEY = "test-gemini-key"
+    process.env.GEMINI_MODEL = "gemini-2.5-flash-lite"
+    vi.stubGlobal("fetch", vi.fn(async (_url: unknown, init: { body?: string } = {}) => {
+      const request = JSON.parse(init.body ?? "{}") as {
+        contents?: Array<{ parts?: Array<{ text?: string }> }>
+      }
+      const input = request.contents?.[0]?.parts?.[0]?.text ?? "{}"
+      const context = JSON.parse(input) as {
+        predicted_occupancy?: number
+        candidates?: Array<{ space_id: number; floor_id: number; local_score?: number }>
+      }
+      const candidates = context.candidates ?? []
+      const byFloor: typeof candidates = []
+      const seenFloors = new Set<number>()
+      for (const candidate of candidates) {
+        if (!seenFloors.has(candidate.floor_id)) {
+          seenFloors.add(candidate.floor_id)
+          byFloor.push(candidate)
+        }
+      }
+      const selected = [
+        ...byFloor,
+        ...candidates.filter((candidate) => !byFloor.some((item) => item.space_id === candidate.space_id)),
+      ].slice(0, 6)
+
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{
+            content: {
+              parts: [{
+                text: JSON.stringify({
+                  predicted_occupancy: context.predicted_occupancy ?? 0.5,
+                  prediction_label: (context.predicted_occupancy ?? 0) >= 0.7 ? "alta" : "media",
+                  recommendations: selected.map((candidate) => ({
+                    space_id: candidate.space_id,
+                    reason: "Seleccionado por Gemini usando contexto de prueba",
+                    score: candidate.local_score ?? 88,
+                    confidence: 0.9,
+                  })),
+                }),
+              }],
+            },
+          }],
+        }),
+      }
+    }))
+
     spaceRepository = {
       findAvailable: vi.fn().mockResolvedValue([makeSpace()]),
       findById: vi.fn().mockResolvedValue(makeSpace()),
@@ -71,6 +120,7 @@ describe("ReservationService", () => {
       hasOverlappingOfficeForUser: vi.fn().mockResolvedValue(false),
       hasOverlappingParkingForUser: vi.fn().mockResolvedValue(false),
       hasOverlappingForSpace: vi.fn().mockResolvedValue(false),
+      hasOverlappingBlockForSpace: vi.fn().mockResolvedValue(false),
       findByCode: vi.fn().mockResolvedValue(null),
       findById: vi.fn(),
       create: vi.fn().mockResolvedValue(makeReservationResult()),
@@ -104,6 +154,14 @@ describe("ReservationService", () => {
       undefined,
       badgeService
     )
+  })
+
+  afterEach(() => {
+    delete process.env.AI_PROVIDER
+    delete process.env.GEMINI_API_KEY
+    delete process.env.GEMINI_MODEL
+    delete process.env.OPENAI_API_KEY
+    vi.unstubAllGlobals()
   })
 
   it("creates a workspace reservation without assigning parking when parking is not requested", async () => {
@@ -194,7 +252,7 @@ describe("ReservationService", () => {
     }, 7)
 
     expect(result.prediction_label).toBe("alta")
-    expect(result.model.name).toBe("Lumina Workspace AI")
+    expect(result.model.name).toContain("Gemini API")
     expect(result.model.factors).toContain("colaboradores frecuentes presentes en el horario")
     expect(result.recommendations[0]).toMatchObject({
       space: expect.objectContaining({ id: 21 }),
@@ -241,5 +299,49 @@ describe("ReservationService", () => {
 
     expect(result.recommendations).toHaveLength(6)
     expect(result.recommendations.some((item) => item.space.floor_id === 9)).toBe(true)
+  })
+
+  it("tries a fallback Gemini model when the primary model is temporarily unavailable", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: { status: "UNAVAILABLE" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [{
+            content: {
+              parts: [{
+                text: JSON.stringify({
+                  predicted_occupancy: 0.25,
+                  prediction_label: "baja",
+                  recommendations: [{
+                    space_id: 5,
+                    reason: "Fallback Gemini eligió el mejor espacio disponible",
+                    score: 91,
+                    confidence: 0.88,
+                  }],
+                }),
+              }],
+            },
+          }],
+        }),
+      })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await service.getRecommendations({
+      reservation_date: FUTURE_DATE,
+      start_time: "09:00",
+      end_time: "10:00",
+      priority_category: "escritorio",
+    }, 7)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[0][0])).toContain("gemini-2.5-flash-lite")
+    expect(String(fetchMock.mock.calls[1][0])).toContain("gemini-2.5-flash")
+    expect(result.recommendations[0].space.id).toBe(5)
   })
 })

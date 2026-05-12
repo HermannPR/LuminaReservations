@@ -48,6 +48,10 @@ export function GuardPage(): JSX.Element {
   }, [loadParking])
 
   useReservationRealtime((event) => {
+    if (event.type === 'sync.requested') {
+      void loadParking(false)
+      return
+    }
     if (event.type.startsWith('area_block.')) return
     if (event.parking && (!event.reservation_date || event.reservation_date === date)) {
       void loadParking(false)

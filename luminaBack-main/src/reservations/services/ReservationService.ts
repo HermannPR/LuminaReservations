@@ -6,6 +6,7 @@ import { BadgeService } from "./BadgeService"
 import { ReservationError } from "../errors"
 import {
   AvailabilityFilter,
+  AssistantResponse,
   CreateReservationInput,
   IntelligentRecommendation,
   RecommendationSignal,
@@ -14,6 +15,7 @@ import {
   CheckInResult,
   Space,
   UserPreferenceSignals,
+  UserReservation,
 } from "../interfaces"
 import { getAllowedCheckInCidrs, getCheckInWindowOverrideMinutes } from "../config"
 
@@ -23,6 +25,11 @@ const DEFAULT_TIMEZONE = process.env.RESERVATION_TIMEZONE ?? "America/Monterrey"
 const CHECK_IN_POST_START_MINUTES = 30
 const RECOMMENDATION_MODEL_NAME = "Lumina Workspace AI"
 const RECOMMENDATION_MODEL_VERSION = "local-xai-v1.1"
+const RECOMMENDATION_CACHE_TTL_MS = Number(process.env.RECOMMENDATION_CACHE_TTL_MS ?? 8_000)
+const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+const OPENAI_DEFAULT_MODEL = "gpt-4.1-mini"
+const GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash-lite"
 const RECOMMENDATION_FACTORS = [
   "historial personal de espacios, pisos y categorías",
   "colaboradores frecuentes presentes en el horario",
@@ -31,7 +38,39 @@ const RECOMMENDATION_FACTORS = [
   "demanda histórica por espacio",
 ]
 
+type AiProviderName = "openai" | "gemini"
+
+interface AiProviderMetadata {
+  name: AiProviderName
+  label: string
+  model: string
+}
+
+type AiJsonSchema = Record<string, unknown>
+
+interface AiRecommendationChoice {
+  space_id: number
+  reason: string
+  score?: number
+  confidence?: number
+}
+
+interface AiRecommendationDecision {
+  predicted_occupancy?: number
+  prediction_label?: "baja" | "media" | "alta"
+  recommendations: AiRecommendationChoice[]
+}
+
+interface AiAssistantDecision {
+  answer: string
+  confidence?: number
+  intent?: AssistantResponse["intent"]
+  actions?: Array<{ label: string; to: string }>
+}
+
 export class ReservationService {
+  private readonly recommendationCache = new Map<string, { expiresAt: number; result: RecommendationResult }>()
+
   constructor(
     private readonly spaceRepository: SpaceRepository,
     private readonly reservationRepository: ReservationRepository,
@@ -115,6 +154,13 @@ export class ReservationService {
     )
     if (hasSpaceConflict) {
       throw new ReservationError(409, "SPACE_UNAVAILABLE", "El espacio no está disponible en ese horario")
+    }
+
+    const hasSpaceBlock = await this.reservationRepository.hasOverlappingBlockForSpace(
+      resolvedSpaceId, reservation_date, start_time, end_time
+    )
+    if (hasSpaceBlock) {
+      throw new ReservationError(409, "SPACE_UNAVAILABLE", "El espacio está bloqueado por administración en ese horario")
     }
 
     // Generate unique code
@@ -322,6 +368,12 @@ export class ReservationService {
       throw new ReservationError(400, "INVALID_TIME_RANGE", "El tiempo de fin debe ser mayor al tiempo de inicio")
     }
 
+    const cacheKey = this.getRecommendationCacheKey(filter, userId)
+    const cached = this.recommendationCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.result
+    }
+
     const [
       availableSpaces,
       occupants,
@@ -512,25 +564,609 @@ export class ReservationService {
       })
       .sort((a, b) => b.score - a.score)
 
-    const recommendations = filter.floor_id === undefined
-      ? this.pickDiverseFloorRecommendations(rankedRecommendations, 6)
-      : rankedRecommendations.slice(0, 6)
+    const candidatePool = filter.floor_id === undefined
+      ? this.pickDiverseFloorRecommendations(rankedRecommendations, Math.min(24, rankedRecommendations.length))
+      : rankedRecommendations.slice(0, 24)
+    const aiDecision = await this.getAiRecommendationDecision(filter, userId, candidatePool, predictedOccupancy)
+    const aiRecommendations = this.applyAiRecommendationDecision(candidatePool, aiDecision).slice(0, 6)
 
-    return {
+    const result: RecommendationResult = {
       model: {
-        name: RECOMMENDATION_MODEL_NAME,
-        version: RECOMMENDATION_MODEL_VERSION,
-        confidence: recommendations.length > 0
-          ? Number((recommendations.slice(0, 3).reduce((sum, item) => sum + item.confidence, 0) / Math.min(3, recommendations.length)).toFixed(2))
+        name: `${RECOMMENDATION_MODEL_NAME} + ${this.getAiProviderMetadata().label}`,
+        version: `${RECOMMENDATION_MODEL_VERSION}:${this.getAiProviderMetadata().model}`,
+        confidence: aiRecommendations.length > 0
+          ? Number((aiRecommendations.slice(0, 3).reduce((sum, item) => sum + item.confidence, 0) / Math.min(3, aiRecommendations.length)).toFixed(2))
           : Number(baseConfidence.toFixed(2)),
         factors: RECOMMENDATION_FACTORS,
       },
-      predicted_occupancy: predictedOccupancy,
+      predicted_occupancy: this.clamp(aiDecision.predicted_occupancy ?? predictedOccupancy, 0, 1),
       prediction_label:
-        predictedOccupancy >= 0.7 ? "alta" :
+        aiDecision.prediction_label ??
+        (predictedOccupancy >= 0.7 ? "alta" :
         predictedOccupancy >= 0.4 ? "media" :
-        "baja",
-      recommendations,
+        "baja"),
+      recommendations: aiRecommendations,
+    }
+
+    this.recommendationCache.set(cacheKey, {
+      expiresAt: Date.now() + Math.max(0, RECOMMENDATION_CACHE_TTL_MS),
+      result,
+    })
+    this.compactRecommendationCache()
+
+    return result
+  }
+
+  async answerAssistantQuestion(
+    message: string,
+    userId: number,
+    userRole: string
+  ): Promise<AssistantResponse> {
+    const normalized = this.normalizeQuestion(message)
+    const filter = this.buildAssistantDefaultFilter(normalized)
+    const isAdmin = ["admin", "administrador"].includes(userRole.toLowerCase())
+    const isGuard = ["guard", "guardia"].includes(userRole.toLowerCase())
+    const wantsRecommendation = this.matchesAny(normalized, ["recomienda", "recomendacion", "recomendación", "sentar", "siento", "espacio", "lugar", "ia"])
+    const wantsAdmin = this.matchesAny(normalized, ["kpi", "ocupacion", "ocupación", "dashboard", "admin", "bloqueo", "bloquear"])
+    const currentReservations = await this.reservationRepository.findByUserId(userId, "current")
+    const recommendations = wantsRecommendation
+      ? await this.getRecommendations(filter, userId)
+      : null
+    const overview = wantsAdmin && isAdmin
+      ? await this.reservationRepository.getAdminOverview(filter.reservation_date)
+      : null
+
+    const compactRecommendations = recommendations?.recommendations.slice(0, 4).map((item) => ({
+      space_id: item.space.id,
+      space_number: item.space.space_number,
+      floor_id: item.space.floor_id,
+      score: item.score,
+      reason: this.getAssistantRecommendationReason(item),
+    })) ?? []
+
+    const context = JSON.stringify({
+      user: { id: userId, role: userRole, is_admin: isAdmin, is_guard: isGuard },
+      question: message,
+      inferred_filter: filter,
+      current_reservations: currentReservations.slice(0, 5).map((reservation) => ({
+        space_number: reservation.space_number,
+        floor_name: reservation.floor_name,
+        reservation_date: String(reservation.reservation_date).slice(0, 10),
+        start_time: String(reservation.start_time).slice(0, 5),
+        end_time: String(reservation.end_time).slice(0, 5),
+        status: reservation.status,
+        parking_spot_number: reservation.parking_spot_number,
+        parking_zone_name: reservation.parking_zone_name,
+      })),
+      recommendations: compactRecommendations,
+      admin_overview: overview
+        ? {
+            total_reservations: overview.total_reservations,
+            occupancy_rate: overview.occupancy_rate,
+            parking_reservations: overview.parking_reservations,
+            blocked_area_count: overview.blocked_area_count,
+            blocked_space_count: overview.blocked_space_count,
+          }
+        : null,
+    })
+
+    const decision = await this.callAiJson<AiAssistantDecision>({
+      instructions:
+        "Eres el chatbot con IA real de WorkHub MTY. Responde en español, breve y accionable. Usa SOLO el contexto recibido; si faltan datos, dilo. Devuelve SOLO JSON valido con answer, confidence 0-1, intent y actions. No inventes reservas ni espacios.",
+      input: context,
+      maxOutputTokens: 700,
+      responseSchema: this.getAssistantResponseSchema(),
+    })
+
+    return {
+      answer: decision.answer || "No pude generar una respuesta útil con los datos disponibles.",
+      confidence: Number(this.clamp(decision.confidence ?? 0.76, 0, 1).toFixed(2)),
+      intent: decision.intent ?? (wantsRecommendation ? "recommendation" : wantsAdmin ? "admin_insight" : "general"),
+      recommendations: compactRecommendations,
+      actions: Array.isArray(decision.actions) && decision.actions.length > 0
+        ? decision.actions.slice(0, 2)
+        : [{ label: wantsRecommendation ? "Nueva reserva" : "Ver mis reservas", to: wantsRecommendation ? "/nueva-reserva" : "/mis-reservas" }],
+    }
+  }
+
+  private getRecommendationCacheKey(filter: AvailabilityFilter, userId: number): string {
+    return [
+      userId,
+      filter.reservation_date,
+      filter.start_time,
+      filter.end_time,
+      filter.floor_id ?? "all",
+      filter.priority_category ?? "all",
+    ].join("|")
+  }
+
+  private compactRecommendationCache(): void {
+    if (this.recommendationCache.size <= 200) return
+    const now = Date.now()
+    for (const [key, value] of this.recommendationCache.entries()) {
+      if (value.expiresAt <= now || this.recommendationCache.size > 160) {
+        this.recommendationCache.delete(key)
+      }
+    }
+  }
+
+  private normalizeQuestion(message: string): string {
+    return message
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  }
+
+  private matchesAny(message: string, terms: string[]): boolean {
+    return terms.some((term) => message.includes(this.normalizeQuestion(term)))
+  }
+
+  private buildAssistantDefaultFilter(message: string): AvailabilityFilter {
+    const now = new Date()
+    const date = this.formatDateParts(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      now.getDate()
+    )
+    const parsedHour = this.parseRequestedHour(message)
+    const startHour = parsedHour ?? Math.min(17, Math.max(8, now.getHours() + 1))
+    const endHour = Math.min(18, startHour + 1)
+
+    return {
+      reservation_date: date,
+      start_time: `${String(startHour).padStart(2, "0")}:00`,
+      end_time: `${String(endHour).padStart(2, "0")}:00`,
+      ...(message.includes("piso 9") ? { floor_id: 9 } : {}),
+      ...(message.includes("piso 3") ? { floor_id: 3 } : {}),
+      ...(message.includes("planta baja") || message.includes(" pb ") ? { floor_id: 1 } : {}),
+    }
+  }
+
+  private parseRequestedHour(message: string): number | null {
+    const match = message.match(/(?:a las|desde|hora)?\s*(\d{1,2})(?::\d{2})?\s*(am|pm)?/)
+    if (!match) return null
+    let hour = Number(match[1])
+    const meridiem = match[2]
+    if (Number.isNaN(hour)) return null
+    if (meridiem === "pm" && hour < 12) hour += 12
+    if (meridiem === "am" && hour === 12) hour = 0
+    return hour >= 7 && hour <= 21 ? hour : null
+  }
+
+  private getAssistantRecommendationReason(item: IntelligentRecommendation): string {
+    if (item.nearby_user) return `cerca de ${item.nearby_user.first_name} ${item.nearby_user.last_name}`
+    const signal = item.signals[0]
+    if (signal?.label === "Patrón personal") return "coincide con tu historial"
+    if (signal?.label === "Disponibilidad prevista") return "mejor disponibilidad prevista"
+    if (signal?.label === "Distribución del mapa") return "mejor distribución en el mapa"
+    return "mejor balance entre disponibilidad y preferencia"
+  }
+
+  private buildReservationStatusAnswer(reservations: UserReservation[]): string {
+    if (reservations.length === 0) {
+      return "No tienes reservas activas o próximas en este momento."
+    }
+
+    const next = reservations[0]
+    const date = typeof next.reservation_date === "string"
+      ? next.reservation_date.slice(0, 10)
+      : String(next.reservation_date)
+    const parking = next.parking_spot_number
+      ? ` También tienes estacionamiento ${next.parking_spot_number} en ${next.parking_zone_name}.`
+      : ""
+
+    return `Tu próxima reserva es ${next.space_number} en ${next.floor_name}, el ${date} de ${String(next.start_time).slice(0, 5)} a ${String(next.end_time).slice(0, 5)}.${parking}`
+  }
+
+  private async getAiRecommendationDecision(
+    filter: AvailabilityFilter,
+    userId: number,
+    candidates: IntelligentRecommendation[],
+    predictedOccupancy: number
+  ): Promise<AiRecommendationDecision> {
+    if (candidates.length === 0) {
+      return { predicted_occupancy: predictedOccupancy, recommendations: [] }
+    }
+
+    const input = JSON.stringify({
+      user_id: userId,
+      reservation: filter,
+      predicted_occupancy: predictedOccupancy,
+      candidates: candidates.map((item) => ({
+        space_id: item.space.id,
+        space_number: item.space.space_number,
+        floor_id: item.space.floor_id,
+        category: item.space.priority_category,
+        local_score: item.score,
+        local_confidence: item.confidence,
+        nearby_user: item.nearby_user
+          ? {
+              first_name: item.nearby_user.first_name,
+              last_name: item.nearby_user.last_name,
+              department: item.nearby_user.department,
+            }
+          : null,
+        local_reasons: item.reasons.slice(0, 3),
+        signals: item.signals.map((signal) => ({
+          label: signal.label,
+          strength: signal.strength,
+          value: signal.value,
+        })),
+      })),
+    })
+
+    const decision = await this.callAiJson<AiRecommendationDecision>({
+      instructions:
+        "Eres la IA de recomendaciones de WorkHub MTY. Elige hasta 6 espacios reales de candidates para el mapa. Responde SOLO JSON valido con predicted_occupancy, prediction_label y recommendations. prediction_label debe ser exactamente baja, media o alta. Cada recommendation debe incluir space_id, reason breve en español, score 0-100 y confidence 0-1. No inventes IDs.",
+      input,
+      maxOutputTokens: 900,
+      responseSchema: this.getRecommendationResponseSchema(),
+    })
+
+    return {
+      predicted_occupancy: typeof decision.predicted_occupancy === "number"
+        ? decision.predicted_occupancy
+        : predictedOccupancy,
+      prediction_label: this.normalizePredictionLabel(decision.prediction_label),
+      recommendations: Array.isArray(decision.recommendations)
+        ? decision.recommendations
+        : [],
+    }
+  }
+
+  private applyAiRecommendationDecision(
+    candidates: IntelligentRecommendation[],
+    decision: AiRecommendationDecision
+  ): IntelligentRecommendation[] {
+    const byId = new Map(candidates.map((item) => [item.space.id, item]))
+    const selected: IntelligentRecommendation[] = []
+
+    for (const choice of decision.recommendations) {
+      const candidate = byId.get(Number(choice.space_id))
+      if (!candidate || selected.some((item) => item.space.id === candidate.space.id)) continue
+
+      const reason = typeof choice.reason === "string" && choice.reason.trim()
+        ? choice.reason.trim()
+        : "La IA eligió este espacio por disponibilidad, afinidad y distribución del mapa"
+
+      selected.push({
+        ...candidate,
+        score: this.clamp(Math.round(choice.score ?? candidate.score), 0, 100),
+        confidence: Number(this.clamp(choice.confidence ?? candidate.confidence, 0.52, 0.98).toFixed(2)),
+        ai_summary: reason,
+        reasons: [reason, ...candidate.reasons.filter((item) => item !== reason)].slice(0, 4),
+      })
+    }
+
+    if (selected.length > 0) return selected
+    return candidates.slice(0, 6)
+  }
+
+  private getAiProviderMetadata(): AiProviderMetadata {
+    const configuredProvider = process.env.AI_PROVIDER?.trim().toLowerCase()
+    if (
+      configuredProvider &&
+      !["gemini", "google", "openai"].includes(configuredProvider)
+    ) {
+      throw new ReservationError(503, "AI_NOT_CONFIGURED", "AI_PROVIDER debe ser gemini u openai")
+    }
+
+    const provider: AiProviderName =
+      configuredProvider === "gemini" || configuredProvider === "google"
+        ? "gemini"
+        : configuredProvider === "openai"
+          ? "openai"
+          : process.env.GEMINI_API_KEY?.trim()
+            ? "gemini"
+            : "openai"
+
+    if (provider === "gemini") {
+      return {
+        name: "gemini",
+        label: "Gemini API",
+        model: process.env.GEMINI_MODEL?.trim() || GEMINI_DEFAULT_MODEL,
+      }
+    }
+
+    return {
+      name: "openai",
+      label: "OpenAI Responses API",
+      model: process.env.OPENAI_MODEL?.trim() || OPENAI_DEFAULT_MODEL,
+    }
+  }
+
+  private async callAiJson<T>(request: {
+    instructions: string
+    input: string
+    maxOutputTokens: number
+    responseSchema?: AiJsonSchema
+  }): Promise<T> {
+    const provider = this.getAiProviderMetadata()
+
+    if (provider.name === "gemini") {
+      return this.callGeminiJson<T>(request, provider.model)
+    }
+
+    return this.callOpenAiJson<T>(request, provider.model)
+  }
+
+  private async callGeminiJson<T>({
+    instructions,
+    input,
+    maxOutputTokens,
+    responseSchema,
+  }: {
+    instructions: string
+    input: string
+    maxOutputTokens: number
+    responseSchema?: AiJsonSchema
+  }, model: string): Promise<T> {
+    const apiKey = process.env.GEMINI_API_KEY?.trim()
+    if (!apiKey) {
+      throw new ReservationError(503, "AI_NOT_CONFIGURED", "Configura GEMINI_API_KEY para usar IA real con Gemini")
+    }
+
+    const baseUrl = (process.env.GEMINI_BASE_URL?.trim() || GEMINI_DEFAULT_BASE_URL).replace(/\/+$/, "")
+    const models = this.getGeminiModelChain(model)
+    let lastErrorBody: unknown = null
+    let lastParseError: unknown = null
+
+    for (const candidateModel of models) {
+      const response = await globalThis.fetch(`${baseUrl}/models/${encodeURIComponent(candidateModel)}:generateContent`, {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: instructions }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: input }],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens,
+            responseMimeType: "application/json",
+            ...(responseSchema ? { responseSchema } : {}),
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+            temperature: 0.2,
+          },
+        }),
+      })
+
+      const body = await response.json().catch(() => null) as unknown
+      if (!response.ok) {
+        lastErrorBody = body
+        if (this.shouldTryNextGeminiModel(response.status)) {
+          continue
+        }
+
+        console.error("Gemini provider error:", body)
+        throw new ReservationError(502, "AI_PROVIDER_ERROR", "No fue posible consultar Gemini")
+      }
+
+      const text = this.extractGeminiText(body)
+      if (!text) {
+        lastErrorBody = body
+        continue
+      }
+
+      try {
+        return this.parseAiJson<T>(text)
+      } catch (error) {
+        lastParseError = { error, text }
+      }
+    }
+
+    console.error("Gemini provider error:", lastErrorBody ?? lastParseError)
+    throw new ReservationError(502, "AI_PROVIDER_ERROR", "No fue posible consultar Gemini")
+  }
+
+  private getGeminiModelChain(primaryModel: string): string[] {
+    const configuredFallbacks = process.env.GEMINI_FALLBACK_MODELS
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+
+    const fallbackModels = configuredFallbacks && configuredFallbacks.length > 0
+      ? configuredFallbacks
+      : ["gemini-2.5-flash", "gemini-2.0-flash-lite"]
+
+    return Array.from(new Set([primaryModel, ...fallbackModels]))
+  }
+
+  private shouldTryNextGeminiModel(statusCode: number): boolean {
+    return statusCode === 429 || statusCode === 503
+  }
+
+  private async callOpenAiJson<T>({
+    instructions,
+    input,
+    maxOutputTokens,
+  }: {
+    instructions: string
+    input: string
+    maxOutputTokens: number
+    responseSchema?: AiJsonSchema
+  }, model: string): Promise<T> {
+    const apiKey = process.env.OPENAI_API_KEY?.trim()
+    if (!apiKey) {
+      throw new ReservationError(503, "AI_NOT_CONFIGURED", "Configura OPENAI_API_KEY para usar IA real")
+    }
+
+    const baseUrl = (process.env.OPENAI_BASE_URL?.trim() || OPENAI_DEFAULT_BASE_URL).replace(/\/+$/, "")
+    const response = await globalThis.fetch(`${baseUrl}/responses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        instructions,
+        input,
+        max_output_tokens: maxOutputTokens,
+        store: false,
+        text: { format: { type: "json_object" } },
+      }),
+    })
+
+    const body = await response.json().catch(() => null) as unknown
+    if (!response.ok) {
+      console.error("OpenAI provider error:", body)
+      throw new ReservationError(502, "AI_PROVIDER_ERROR", "No fue posible consultar el proveedor de IA")
+    }
+
+    const text = this.extractOpenAiText(body)
+    if (!text) {
+      throw new ReservationError(502, "AI_PROVIDER_ERROR", "La IA no devolvió texto utilizable")
+    }
+
+    try {
+      return this.parseAiJson<T>(text)
+    } catch (error) {
+      console.error("OpenAI JSON parse error:", error, text)
+      throw new ReservationError(502, "AI_PROVIDER_ERROR", "La IA devolvió JSON inválido")
+    }
+  }
+
+  private extractOpenAiText(body: unknown): string {
+    const response = body as {
+      output_text?: string
+      output?: Array<{
+        content?: Array<{
+          text?: string
+          type?: string
+        }>
+      }>
+    }
+
+    if (typeof response.output_text === "string") {
+      return response.output_text
+    }
+
+    return response.output
+      ?.flatMap((item) => item.content ?? [])
+      .map((content) => content.text)
+      .filter((text): text is string => typeof text === "string")
+      .join("\n")
+      .trim() ?? ""
+  }
+
+  private extractGeminiText(body: unknown): string {
+    const response = body as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string
+          }>
+        }
+      }>
+    }
+
+    return response.candidates
+      ?.flatMap((candidate) => candidate.content?.parts ?? [])
+      .map((part) => part.text)
+      .filter((text): text is string => typeof text === "string")
+      .join("\n")
+      .trim() ?? ""
+  }
+
+  private stripJsonFence(text: string): string {
+    return text
+      .trim()
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim()
+  }
+
+  private parseAiJson<T>(text: string): T {
+    const compacted = this.stripJsonFence(text)
+      .replace(/,\s*([}\]])/g, "$1")
+      .trim()
+
+    try {
+      return JSON.parse(compacted) as T
+    } catch {
+      const firstObject = compacted.indexOf("{")
+      const lastObject = compacted.lastIndexOf("}")
+      if (firstObject >= 0 && lastObject > firstObject) {
+        return JSON.parse(compacted.slice(firstObject, lastObject + 1)) as T
+      }
+
+      throw new Error("AI response is not valid JSON")
+    }
+  }
+
+  private normalizePredictionLabel(label: unknown): AiRecommendationDecision["prediction_label"] | undefined {
+    if (label === "baja" || label === "media" || label === "alta") return label
+    if (typeof label !== "string") return undefined
+
+    const normalized = this.normalizeQuestion(label)
+    if (normalized.includes("alta")) return "alta"
+    if (normalized.includes("media")) return "media"
+    if (normalized.includes("baja")) return "baja"
+    return undefined
+  }
+
+  private getRecommendationResponseSchema(): AiJsonSchema {
+    return {
+      type: "object",
+      properties: {
+        predicted_occupancy: { type: "number" },
+        prediction_label: { type: "string", enum: ["baja", "media", "alta"] },
+        recommendations: {
+          type: "array",
+          maxItems: 6,
+          items: {
+            type: "object",
+            properties: {
+              space_id: { type: "integer" },
+              reason: { type: "string" },
+              score: { type: "number" },
+              confidence: { type: "number" },
+            },
+            required: ["space_id", "reason", "score", "confidence"],
+          },
+        },
+      },
+      required: ["predicted_occupancy", "prediction_label", "recommendations"],
+    }
+  }
+
+  private getAssistantResponseSchema(): AiJsonSchema {
+    return {
+      type: "object",
+      properties: {
+        answer: { type: "string" },
+        confidence: { type: "number" },
+        intent: {
+          type: "string",
+          enum: ["reservation_status", "recommendation", "admin_insight", "general"],
+        },
+        actions: {
+          type: "array",
+          maxItems: 2,
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+              to: { type: "string" },
+            },
+            required: ["label", "to"],
+          },
+        },
+      },
+      required: ["answer", "confidence", "intent", "actions"],
     }
   }
 

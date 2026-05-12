@@ -7,6 +7,7 @@ export type SpaceStatus = 'available' | 'unavailable' | 'selected' | 'neutral'
 
 interface FloorPlanViewerProps {
   imageUrl: string
+  floorName: string
   spaces: SpaceWithLayout[]
   availableIds: Set<number>
   selectedId: number | null
@@ -123,6 +124,48 @@ function getSpaceAnchor(space: SpaceWithLayout, vbW: number): { x: number; y: nu
   }
 }
 
+function getDeskSeatAnchor(space: SpaceWithLayout, vbW: number): { x: number; y: number; direction: LayoutDirection } | null {
+  if (space.layout_type !== 'desk' || !space.layout_points || space.layout_points.length < 2) return null
+  const p0 = space.layout_points[0]
+  const p1 = space.layout_points[1]
+  const x1 = p0.x * vbW
+  const y1 = p0.y * 100
+  const x2 = p1.x * vbW
+  const y2 = p1.y * 100
+  const dw = x2 - x1
+  const dh = y2 - y1
+  const dir = space.layout_direction ?? 'up'
+  const offset = seatOffset(dir, dw, dh)
+
+  return {
+    x: (x1 + x2) / 2 + offset.dx,
+    y: (y1 + y2) / 2 + offset.dy,
+    direction: dir,
+  }
+}
+
+function getOccupantMarkerAnchor(space: SpaceWithLayout, vbW: number): { x: number; y: number } | null {
+  const seatAnchor = getDeskSeatAnchor(space, vbW)
+  if (seatAnchor) {
+    const verticalOffset = seatAnchor.direction === 'down'
+      ? 5.2
+      : seatAnchor.direction === 'up'
+        ? -5.2
+        : seatAnchor.y < 52 ? 5.2 : -5.2
+    return {
+      x: seatAnchor.x,
+      y: Math.max(4, Math.min(96, seatAnchor.y + verticalOffset)),
+    }
+  }
+
+  const anchor = getSpaceAnchor(space, vbW)
+  if (!anchor) return null
+  return {
+    x: anchor.x,
+    y: anchor.y < 52 ? Math.min(96, anchor.y + 7) : Math.max(4, anchor.y - 7),
+  }
+}
+
 interface ShapeProps {
   space: SpaceWithLayout
   vbW: number
@@ -145,7 +188,7 @@ function OccupantMarker({
   vbW: number
   intervals: OccupancyInterval[]
 }) {
-  const anchor = getSpaceAnchor(space, vbW)
+  const anchor = getOccupantMarkerAnchor(space, vbW)
   if (!anchor || intervals.length === 0) return null
 
   const primary = intervals[0]
@@ -153,8 +196,8 @@ function OccupantMarker({
   const clipId = `occupant-avatar-${space.id}-${user.id}`
   const label = `${user.first_name} ${user.last_name} reservó ${space.space_number} de ${primary.start_time} a ${primary.end_time}`
   const radius = 2.75
-  const x = anchor.x + 3.2
-  const y = Math.max(4, anchor.y - 4.1)
+  const x = anchor.x
+  const y = anchor.y
 
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -477,6 +520,7 @@ function DeskShape({
 
 export function FloorPlanViewer({
   imageUrl,
+  floorName,
   spaces,
   availableIds,
   selectedId,
@@ -501,6 +545,18 @@ export function FloorPlanViewer({
     desks: spaces.filter((s) => !s.visual_only && s.layout_type === 'desk'),
     visuals: spaces.filter((s) => s.visual_only),
   }), [spaces])
+  const spacesById = useMemo(() => new Map(spaces.map((space) => [space.id, space])), [spaces])
+  const hoveredSpace = hoveredId !== null ? spacesById.get(hoveredId) ?? null : null
+  const hoveredIntervals = hoveredId !== null ? occupancyBySpace.get(hoveredId) ?? [] : []
+  const hoverAnchor = hoveredSpace ? getSpaceAnchor(hoveredSpace, vbW) : null
+  const popupWidth = Math.min(48, Math.max(34, vbW * 0.28))
+  const popupHeight = hoveredIntervals.length > 0 ? Math.min(34, 15 + hoveredIntervals.length * 7) : 17
+  const popupX = hoverAnchor
+    ? Math.max(1, Math.min(vbW - popupWidth - 1, hoverAnchor.x + (hoverAnchor.x > vbW * 0.62 ? -popupWidth - 4 : 4)))
+    : 0
+  const popupY = hoverAnchor
+    ? Math.max(1, Math.min(100 - popupHeight - 1, hoverAnchor.y + (hoverAnchor.y > 58 ? -popupHeight - 4 : 4)))
+    : 0
 
   function getTitle(space: SpaceWithLayout, status: SpaceStatus): string {
     const intervals = occupancyBySpace.get(space.id) ?? []
@@ -626,6 +682,45 @@ export function FloorPlanViewer({
             />
           )
         })}
+
+        {hoveredSpace && hoverAnchor && (
+          <foreignObject
+            x={popupX.toFixed(3)}
+            y={popupY.toFixed(3)}
+            width={popupWidth.toFixed(3)}
+            height={popupHeight.toFixed(3)}
+            className={styles.popupObject}
+          >
+            <div className={styles.hoverPopup}>
+              <div className={styles.popupHeader}>
+                <strong>{hoveredSpace.space_number}</strong>
+                <span>{floorName}</span>
+              </div>
+              {hoveredIntervals.length > 0 ? (
+                <div className={styles.popupOccupants}>
+                  {hoveredIntervals.slice(0, 3).map((interval) => (
+                    <div key={`${interval.user.id}-${interval.start_time}-${interval.end_time}`} className={styles.popupOccupant}>
+                      <span className={styles.popupAvatar}>
+                        {interval.user.profile_photo_url ? (
+                          <img src={interval.user.profile_photo_url} alt="" />
+                        ) : (
+                          getInitials(interval.user.first_name, interval.user.last_name)
+                        )}
+                      </span>
+                      <span>
+                        <b>{interval.user.first_name} {interval.user.last_name}</b>
+                        <small>{interval.start_time} - {interval.end_time}</small>
+                      </span>
+                    </div>
+                  ))}
+                  {hoveredIntervals.length > 3 && <em>+{hoveredIntervals.length - 3} horarios más</em>}
+                </div>
+              ) : (
+                <p>Sin ocupación registrada para este día.</p>
+              )}
+            </div>
+          </foreignObject>
+        )}
       </svg>
     </div>
   )

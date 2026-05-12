@@ -26,6 +26,8 @@ export type ReservationErrorCode =
   | 'PARKING_TOO_LATE'
   | 'PARKING_UNAVAILABLE'
   | 'PARKING_CONFLICT'
+  | 'AI_NOT_CONFIGURED'
+  | 'AI_PROVIDER_ERROR'
   | 'DATABASE_ERROR';
 
 // GET /reservations/availability — item de respuesta
@@ -150,6 +152,23 @@ export interface RecommendationResult {
   }>
 }
 
+export interface AssistantResponse {
+  answer: string
+  confidence: number
+  intent: 'recommendation' | 'reservation_status' | 'admin_insight' | 'parking' | 'general'
+  recommendations: Array<{
+    space_id: number
+    space_number: string
+    floor_id: number
+    score: number
+    reason: string
+  }>
+  actions: Array<{
+    label: string
+    to: string
+  }>
+}
+
 export interface AiSpaceRecommendationMarker {
   floor_id: number
   score: number
@@ -170,6 +189,7 @@ export interface AdminKpiOverview {
   occupied_spaces: number
   occupancy_rate: number
   blocked_area_count: number
+  blocked_space_count: number
   status_breakdown: Array<{
     status: ReservationStatus
     count: number
@@ -199,6 +219,7 @@ export interface AdminKpiOverview {
     occupancy_rate: number
   }>
   blocked_areas: AreaBlock[]
+  blocked_spaces: SpaceBlock[]
 }
 
 export interface AreaBlock {
@@ -206,6 +227,20 @@ export interface AreaBlock {
   floor_id: number
   floor_name: string
   priority_category: PriorityCategory
+  reason: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface SpaceBlock {
+  id: number
+  space_id: number
+  space_number: string
+  floor_id: number
+  floor_name: string
+  block_date: string
+  start_time: string
+  end_time: string
   reason: string | null
   is_active: boolean
   created_at: string
@@ -226,11 +261,14 @@ export interface ParkingReservationForGuard {
 }
 
 export type ReservationRealtimeEventType =
+  | 'sync.requested'
   | 'reservation.created'
   | 'reservation.cancelled'
   | 'reservation.checked_in'
   | 'area_block.created'
   | 'area_block.deleted'
+  | 'space_block.created'
+  | 'space_block.deleted'
 
 export interface ReservationRealtimeEvent {
   id: number

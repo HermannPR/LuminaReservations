@@ -50,6 +50,17 @@
   opacity: 1;
 }
 
+:global([data-theme='dark']) .banner {
+  color: #ff9aaa;
+  background: rgba(255, 50, 70, 0.12);
+  border-left-color: #ff6475;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+:global([data-theme='dark']) .dismiss {
+  color: #ffbdc5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bannerDismissable,
   .bannerDismissable::after {

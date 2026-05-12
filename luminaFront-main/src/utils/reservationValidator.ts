@@ -41,6 +41,8 @@ const ERROR_MESSAGES: Record<ReservationErrorCode, string> = {
   PARKING_TOO_LATE: 'El estacionamiento solo puede solicitarse con al menos 24 horas de anticipación.',
   PARKING_UNAVAILABLE: 'No hay lugares de estacionamiento disponibles para ese horario.',
   PARKING_CONFLICT: 'Ya tienes estacionamiento reservado en ese horario.',
+  AI_NOT_CONFIGURED: 'Falta configurar la API key de IA real en el backend.',
+  AI_PROVIDER_ERROR: 'El proveedor de IA no respondió correctamente. Revisa la API key o el modelo configurado.',
   DATABASE_ERROR: 'Error interno del servidor. Intenta de nuevo más tarde.',
 };
 

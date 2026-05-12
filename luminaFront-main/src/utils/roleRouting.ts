@@ -13,5 +13,7 @@ export function isGuardRole(role?: string | null): boolean {
 }
 
 export function getRoleHomePath(role?: string | null): string {
-  return isGuardRole(role) ? '/guardia' : '/dashboard'
+  if (isGuardRole(role)) return '/guardia'
+  if (isAdminRole(role)) return '/admin'
+  return '/dashboard'
 }

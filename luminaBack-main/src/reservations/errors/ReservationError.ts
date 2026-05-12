@@ -17,6 +17,8 @@ export type ReservationErrorCode =
   | "PARKING_TOO_LATE"
   | "PARKING_UNAVAILABLE"
   | "PARKING_CONFLICT"
+  | "AI_NOT_CONFIGURED"
+  | "AI_PROVIDER_ERROR"
   | "DATABASE_ERROR"
 
 /**

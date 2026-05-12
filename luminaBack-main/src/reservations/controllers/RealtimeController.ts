@@ -15,7 +15,11 @@ export class RealtimeController {
 
     try {
       JwtService.verify(token)
-      this.eventHub.subscribe(res)
+      const lastEventHeader = req.headers["last-event-id"]
+      const lastEventId = typeof lastEventHeader === "string"
+        ? Number(lastEventHeader)
+        : undefined
+      this.eventHub.subscribe(res, Number.isInteger(lastEventId) ? lastEventId : undefined)
     } catch {
       res.status(401).json({ error: "UNAUTHORIZED", message: "Token inválido o expirado" })
     }

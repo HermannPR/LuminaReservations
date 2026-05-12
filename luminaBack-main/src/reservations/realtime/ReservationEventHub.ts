@@ -1,11 +1,14 @@
 import { Response } from "express"
 
 export type ReservationRealtimeEventType =
+  | "sync.requested"
   | "reservation.created"
   | "reservation.cancelled"
   | "reservation.checked_in"
   | "area_block.created"
   | "area_block.deleted"
+  | "space_block.created"
+  | "space_block.deleted"
 
 export interface ReservationRealtimeEvent {
   id: number
@@ -27,17 +30,20 @@ interface Client {
 
 let nextEventId = 1
 let nextClientId = 1
+const MAX_BACKLOG_SIZE = 100
 
 function writeEvent(res: Response, eventName: string, data: unknown, id?: number): void {
   if (id !== undefined) res.write(`id: ${id}\n`)
+  res.write("retry: 3000\n")
   res.write(`event: ${eventName}\n`)
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
 export class ReservationEventHub {
   private readonly clients = new Map<number, Client>()
+  private readonly backlog: ReservationRealtimeEvent[] = []
 
-  subscribe(res: Response): () => void {
+  subscribe(res: Response, lastEventId?: number): () => void {
     const clientId = nextClientId++
 
     res.setHeader("Content-Type", "text/event-stream")
@@ -50,6 +56,18 @@ export class ReservationEventHub {
       timestamp: new Date().toISOString(),
       client_id: clientId,
     })
+
+    if (lastEventId && Number.isInteger(lastEventId)) {
+      for (const event of this.backlog.filter((item) => item.id > lastEventId)) {
+        writeEvent(res, "reservation", event, event.id)
+      }
+    }
+
+    writeEvent(res, "reservation", {
+      id: nextEventId,
+      type: "sync.requested",
+      timestamp: new Date().toISOString(),
+    } satisfies ReservationRealtimeEvent)
 
     const heartbeat = setInterval(() => {
       res.write(`: ping ${Date.now()}\n\n`)
@@ -75,6 +93,11 @@ export class ReservationEventHub {
       ...event,
       id: nextEventId++,
       timestamp: new Date().toISOString(),
+    }
+
+    this.backlog.push(payload)
+    if (this.backlog.length > MAX_BACKLOG_SIZE) {
+      this.backlog.splice(0, this.backlog.length - MAX_BACKLOG_SIZE)
     }
 
     for (const client of this.clients.values()) {

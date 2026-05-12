@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  askReservationAssistant,
   blockArea,
+  blockSpace,
   createReservation,
   fetchAdminOverview,
   fetchAvailability,
@@ -125,5 +127,38 @@ describe('reservationService', () => {
     const body = JSON.parse(spy.mock.calls[0][1]?.body as string)
     expect(String(spy.mock.calls[0][0])).toContain('/reservations/admin/area-blocks')
     expect(body).toEqual({ floor_id: 1, priority_category: 'escritorio', reason: 'Mantenimiento' })
+  })
+
+  it('posts date/time space blocks for administrators', async () => {
+    const spy = mockFetch(201, { id: 7, space_id: 10 })
+
+    await blockSpace(TOKEN, {
+      space_id: 10,
+      block_date: '2099-06-01',
+      start_time: '09:00',
+      end_time: '11:00',
+      reason: 'Mantenimiento',
+    })
+
+    const body = JSON.parse(spy.mock.calls[0][1]?.body as string)
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/admin/space-blocks')
+    expect(body).toEqual({
+      space_id: 10,
+      block_date: '2099-06-01',
+      start_time: '09:00',
+      end_time: '11:00',
+      reason: 'Mantenimiento',
+    })
+  })
+
+  it('sends assistant messages to the AI endpoint', async () => {
+    const spy = mockFetch(200, { answer: 'PB-01', confidence: 0.8, recommendations: [], actions: [] })
+
+    const result = await askReservationAssistant(TOKEN, 'donde me siento')
+
+    expect(result.success).toBe(true)
+    expect(String(spy.mock.calls[0][0])).toContain('/reservations/assistant')
+    expect((spy.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN}`)
+    expect(JSON.parse(spy.mock.calls[0][1]?.body as string)).toEqual({ message: 'donde me siento' })
   })
 })

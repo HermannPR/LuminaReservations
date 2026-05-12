@@ -14,6 +14,7 @@ import { FloorController } from "./controllers/FloorController"
 import { AdminController } from "./controllers/AdminController"
 import { GuardController } from "./controllers/GuardController"
 import { RealtimeController } from "./controllers/RealtimeController"
+import { ReservationAssistantController } from "./controllers/ReservationAssistantController"
 import { reservationEventHub } from "./realtime/ReservationEventHub"
 
 const db = new Pool({
@@ -48,6 +49,7 @@ const floorController = new FloorController(floorRepository)
 const adminController = new AdminController(reservationRepository, reservationEventHub)
 const guardController = new GuardController(reservationRepository)
 const realtimeController = new RealtimeController(reservationEventHub)
+const assistantController = new ReservationAssistantController(reservationService)
 
 export const reservationsRouter = Router()
 
@@ -58,6 +60,7 @@ reservationsRouter.get("/events", (req, res) => realtimeController.stream(req, r
 reservationsRouter.get("/availability",  requireAuth, (req, res) => reservationController.getAvailability(req, res))
 reservationsRouter.get("/occupancy",     requireAuth, (req, res) => reservationController.getFloorOccupancy(req, res))
 reservationsRouter.get("/recommendations", requireAuth, (req, res) => reservationController.getRecommendations(req, res))
+reservationsRouter.post("/assistant",    requireAuth, (req, res) => assistantController.ask(req, res))
 reservationsRouter.post("/",             requireAuth, (req, res) => reservationController.createReservation(req, res))
 reservationsRouter.post("/:id/check-in", requireAuth, (req, res) => reservationController.checkIn(req, res))
 reservationsRouter.delete("/:id",        requireAuth, (req, res) => reservationController.cancelReservation(req, res))
@@ -68,6 +71,8 @@ reservationsRouter.get("/my-stats",      requireAuth, (req, res) => reservationC
 reservationsRouter.get("/admin/overview", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.getOverview(req, res))
 reservationsRouter.post("/admin/area-blocks", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.blockArea(req, res))
 reservationsRouter.delete("/admin/area-blocks/:id", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.unblockArea(req, res))
+reservationsRouter.post("/admin/space-blocks", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.blockSpace(req, res))
+reservationsRouter.delete("/admin/space-blocks/:id", requireAuth, requireRole(["admin", "administrador"]), (req, res) => adminController.unblockSpace(req, res))
 reservationsRouter.get("/guard/parking", requireAuth, requireRole(["guard", "guardia"]), (req, res) => guardController.getParkingReservations(req, res))
 
 // ── Floor endpoints ────────────────────────────────────────────────────────────
