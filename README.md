@@ -2,7 +2,15 @@
 
 Sistema web para gestionar reservas de espacios de oficina y estacionamiento en WorkHub MTY. La aplicación permite consultar disponibilidad por fecha, horario, piso y zona; reservar escritorios o salas; solicitar estacionamiento como parte de una reserva de espacio; hacer check-in; visualizar ocupación real sobre planos; recibir recomendaciones inteligentes; administrar bloqueos operativos; y consultar accesos de estacionamiento desde una vista exclusiva para guardia.
 
-Repositorio: `https://github.com/alexRodArana/WorkHub_MTY`
+Repositorio: `https://github.com/HermannPR/LuminaReservations`
+
+## Screenshots
+
+![Login](docs/login.png)
+
+Login page of the web app. The backend requires a PostgreSQL/Supabase database (`DATABASE_URL`)
+and a `JWT_SECRET`; without them the API cannot serve data, so interactive views (map, reservations,
+admin) are only reachable with a configured database and a seeded demo user.
 
 ## Contenido
 
