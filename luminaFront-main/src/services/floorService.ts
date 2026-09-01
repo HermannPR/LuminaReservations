@@ -2,6 +2,7 @@ import type { FloorSummary, SpaceWithLayout } from '../types/floor'
 import type { ServiceResult } from '../types/reservation'
 import { API_BASE_URL } from './apiConfig'
 import { clearSession } from './tokenStore'
+import { isDemoMode, demoFloors, demoFloorSpaces } from './demo'
 
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` }
@@ -17,6 +18,7 @@ function isInvalidSessionResponse(response: Response): boolean {
 }
 
 export async function fetchFloors(token: string): Promise<ServiceResult<FloorSummary[]>> {
+  if (isDemoMode()) return { success: true, data: demoFloors() }
   try {
     const res = await fetch(`${API_BASE_URL}/reservations/floors`, { headers: authHeaders(token) })
     if (isInvalidSessionResponse(res)) return unauthorizedResult()
@@ -31,6 +33,7 @@ export async function fetchFloors(token: string): Promise<ServiceResult<FloorSum
 }
 
 export async function fetchFloorSpaces(floorId: number, token: string): Promise<ServiceResult<SpaceWithLayout[]>> {
+  if (isDemoMode()) return { success: true, data: demoFloorSpaces(floorId) }
   try {
     const res = await fetch(`${API_BASE_URL}/reservations/floors/${floorId}/spaces`, {
       headers: authHeaders(token),

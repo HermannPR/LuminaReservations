@@ -1,5 +1,6 @@
 import type { LoginRequest, LoginResponse } from '../types/auth';
 import { API_BASE_URL } from './apiConfig';
+import { isDemoMode, demoLogin } from './demo';
 
 export type LoginResult =
   | { success: true; data: LoginResponse; errorMessage?: never }
@@ -18,6 +19,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 const DEFAULT_ERROR = 'Ocurrió un error inesperado. Intenta de nuevo más tarde.';
 
 export async function login(credentials: LoginRequest): Promise<LoginResult> {
+  if (isDemoMode()) return { success: true, data: demoLogin() };
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',

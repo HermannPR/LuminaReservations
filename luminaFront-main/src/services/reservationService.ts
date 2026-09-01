@@ -18,6 +18,7 @@ import type {
 import type { CheckInPayload } from '../types/gamification'
 import { API_BASE_URL } from './apiConfig'
 import { clearSession } from './tokenStore'
+import { isDemoMode, demoAvailability, demoOccupancy } from './demo'
 
 function unauthorizedResult(): ServiceResult<never> {
   clearSession()
@@ -32,6 +33,7 @@ export async function fetchAvailability(
   filters: FilterValues,
   token: string
 ): Promise<ServiceResult<SpaceAvailability[]>> {
+  if (isDemoMode()) return { success: true, data: demoAvailability() }
   try {
     const params = new URLSearchParams({
       reservation_date: filters.reservation_date,
@@ -74,6 +76,7 @@ export async function fetchFloorOccupancy(
   reservationDate: string,
   token: string
 ): Promise<ServiceResult<SpaceOccupancy[]>> {
+  if (isDemoMode()) return { success: true, data: demoOccupancy(floorId) }
   try {
     const params = new URLSearchParams({
       floor_id: String(floorId),
