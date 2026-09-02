@@ -7,7 +7,6 @@ import { saveSession } from '../../services/tokenStore'
 import { getRoleHomePath } from '../../utils/roleRouting'
 import { LoadingSpinner } from '../LoadingSpinner/LoadingSpinner'
 import { ErrorBanner } from '../ErrorBanner/ErrorBanner'
-import { isDemoMode, DEMO_EMAIL, DEMO_PASSWORD } from '../../services/demo'
 import styles from './LoginForm.module.css'
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -27,8 +26,8 @@ function EyeIcon({ open }: { open: boolean }) {
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate()
 
-  const [email, setEmail] = useState(isDemoMode() ? DEMO_EMAIL : '')
-  const [password, setPassword] = useState(isDemoMode() ? DEMO_PASSWORD : '')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({})
   const [serverError, setServerError] = useState<string | null>(null)
