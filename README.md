@@ -2,17 +2,42 @@
 
 <p><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" height="20" alt="TypeScript"> <img src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB" height="20" alt="React"> <img src="https://img.shields.io/badge/Node.js-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" height="20" alt="Node.js"> <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white" height="20" alt="Supabase"></p>
 
+> **ES:** Sistema full-stack de reservas de escritorios, salas y estacionamiento con mapa de piso interactivo, ocupación en tiempo real (SSE) y recomendaciones con IA.
+> **EN:** Full-stack desk, room and parking reservation system with an interactive floor map, real-time occupancy over Server-Sent Events and AI-assisted recommendations.
+
+**Demo en vivo:** [work-hub-mty-six.vercel.app](https://work-hub-mty-six.vercel.app/login) (requiere cuenta; los datos viven en la base del equipo)
+**Autor de este repositorio:** [Hermann Pauwells Rivera](https://hermannpr.github.io/)
+
+![Pantalla de acceso en producción](docs/screenshots/login-live.png)
+
 Sistema web para gestionar reservas de espacios de oficina y estacionamiento en WorkHub MTY. La aplicación permite consultar disponibilidad por fecha, horario, piso y zona; reservar escritorios o salas; solicitar estacionamiento como parte de una reserva de espacio; hacer check-in; visualizar ocupación real sobre planos; recibir recomendaciones inteligentes; administrar bloqueos operativos; y consultar accesos de estacionamiento desde una vista exclusiva para guardia.
 
-Repositorio: `https://github.com/HermannPR/LuminaReservations`
+## Mi rol
 
-## Screenshots
+Proyecto académico en equipo (Tecnológico de Monterrey, 2026), trabajado en sprints semanales. Mi parte:
 
-![Login](docs/login.png)
+- Backend de reservas en Node/Express y TypeScript: servicios, repositorios, controladores y migraciones.
+- Monitoreo de ocupación en tiempo real con Server-Sent Events (`GET /reservations/events`).
+- Mapa de piso y flujo de reserva en React/Vite (dashboard, filtros, confirmación) con acceso por rol.
 
-Login page of the web app. The backend requires a PostgreSQL/Supabase database (`DATABASE_URL`)
-and a `JWT_SECRET`; without them the API cannot serve data, so interactive views (map, reservations,
-admin) are only reachable with a configured database and a seeded demo user.
+## Arquitectura en una imagen
+
+```mermaid
+flowchart LR
+  U[Empleado / Admin / Guardia] --> F[SPA React + Vite<br/>mapa de piso, reservas, dashboards]
+  F -->|REST + JWT| B[API Node/Express + TypeScript<br/>services / repositories / controllers]
+  B -->|SSE /reservations/events| F
+  B --> DB[(PostgreSQL en Supabase)]
+  B -->|candidatos + contexto| AI[Gemini u OpenAI<br/>con modelos de respaldo]
+```
+
+## Capturas
+
+| Diseño de la página de reserva (mockup final) | Organización por sprints |
+|---|---|
+| ![Mockup de reserva sobre plano](docs/presentation/page-04.png) | ![Sprints](docs/presentation/page-09.png) |
+
+La demo requiere una base PostgreSQL/Supabase (`DATABASE_URL`) y un `JWT_SECRET`; las vistas internas (mapa, reservas, admin) solo cargan con una base configurada y un usuario sembrado. La presentación completa está en [`docs/presentation/`](docs/presentation/).
 
 ## Contenido
 
@@ -206,10 +231,7 @@ Cobertura funcional incluida:
 - Restricción de rutas por rol para guardia.
 - Integración UI: recomendación inteligente y reserva de escritorio con estacionamiento.
 
-Última validación local:
-
-- Backend: `npm test` con 17 pruebas y `npm run build`.
-- Frontend: `npm run lint`, `npm test` con 15 pruebas y `npm run build`.
+Las pruebas viven en 8 archivos de Vitest (backend) y Vitest + Testing Library (frontend).
 
 ## Arquitectura
 
@@ -415,12 +437,9 @@ Para validar una instalación:
 - `AI_PROVIDER_ERROR`: el proveedor de IA no respondió, rechazó el modelo o devolvió una respuesta inválida.
 - `DATABASE_ERROR`: revisar `DATABASE_URL`, migraciones y conectividad.
 
-## Estado de Calidad
+## Estado
 
-Comandos verificados durante el desarrollo:
-
-- `luminaBack-main`: `npm test` con 16 pruebas, `npm run build`.
-- `luminaFront-main`: `npm run lint`, `npm test` con 14 pruebas, `npm run build`.
+Entregado como proyecto académico en 2026. El frontend sigue desplegado en Vercel; el backend necesita su base de datos para servir datos.
 
 ## Seguridad
 
@@ -428,3 +447,7 @@ Comandos verificados durante el desarrollo:
 - Rota cualquier token que haya sido pegado en chats, terminales compartidas o logs.
 - Usa una base de datos separada para desarrollo, pruebas y producción.
 - Revisa las migraciones destructivas antes de ejecutarlas contra datos reales.
+
+## Licencia
+
+[MIT](LICENSE).
